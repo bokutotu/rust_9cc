@@ -181,12 +181,12 @@ mod expr_test {
 
     #[test]
     fn tesst_miuns() {
-        let code_str = "-3";
+        let code_str = "-10";
         let code = Code::new(code_str);
         let mut tokens_iter = Tokens::parse(&code).into_iter();
         let expr = expr(&mut tokens_iter);
         let zero = Node::new(Token::INT(0), None, None);
-        let three = Node::new(Token::INT(3), None, None);
+        let three = Node::new(Token::INT(10), None, None);
         let ans = Node::new(Token::MINUS, Some(zero), Some(three));
         assert_eq!(ans, expr);
     }

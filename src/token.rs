@@ -273,7 +273,7 @@ impl<'a> Iterator for TokensIter<'a> {
 
 #[test]
 fn code_2_tokens() {
-    let code_str = "(10 + 3 - 2) * 3";
+    let code_str = "(10+3-2)*3";
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
@@ -281,6 +281,20 @@ fn code_2_tokens() {
                             Token::MINUS, Token::INT(2), Token::RPARENTHESIS, 
                             Token::ASTARISK, Token::INT(3)]),
         len: Cell::new(9),
+    };
+    assert_eq!(ans, tokens);
+}
+
+#[test]
+fn test_minus() {
+    let code_str = "-1";
+    let code = Code::new(code_str);
+    let tokens = Tokens::parse(&code);
+    let ans = Tokens {
+        value: RefCell::new(
+            vec![Token::MINUS, Token::INT(1)]
+        ),
+        len: Cell::new(2),
     };
     assert_eq!(ans, tokens);
 }
