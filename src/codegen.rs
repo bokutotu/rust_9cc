@@ -11,6 +11,7 @@ pub fn gen(node: &Node) -> String {
     let inner = gen_inner(node);
 
     assembly.push_str(&inner);
+    assembly.push_str("\tpop rax\n");
     assembly.push_str("\tret\n");
     assembly
 }
