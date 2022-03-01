@@ -73,14 +73,14 @@ pub fn expr<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
 }
 
 fn mul<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
-    let mut node = primary(tokens_iter);
+    let mut node = unary(tokens_iter);
     loop {
         match tokens_iter.next() {
             Some(Token::ASTARISK) => {
-                node = Node::new(Token::ASTARISK, Some(node), Some(primary(tokens_iter)));
+                node = Node::new(Token::ASTARISK, Some(node), Some(unary(tokens_iter)));
             },
             Some(Token::SLASH) => {
-                node = Node::new(Token::SLASH, Some(node), Some(primary(tokens_iter)));
+                node = Node::new(Token::SLASH, Some(node), Some(unary(tokens_iter)));
             },
             _ => {
                 tokens_iter.back();
@@ -89,6 +89,18 @@ fn mul<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
         };
     }
     node
+}
+
+fn unary<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
+    let token = tokens_iter.next().expect("error");
+    if Token::MINUS == token {
+        let zero = Token::INT(0);
+        let zero_node = Node::new(zero, None, None);
+        return Node::new(Token::MINUS, Some(zero_node), Some(primary(tokens_iter)));
+    } else {
+        tokens_iter.back();
+        return primary(tokens_iter);
+    }
 }
 
 fn primary<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
@@ -165,5 +177,17 @@ mod expr_test {
             Token::PLUS, Some(three), Some(four));
         let ans = Node::new(Token::MINUS, Some(one_ast_two), Some(three_plus_four));
         assert_eq!(ans, expr_);
+    }
+
+    #[test]
+    fn tesst_miuns() {
+        let code_str = "-3";
+        let code = Code::new(code_str);
+        let mut tokens_iter = Tokens::parse(&code).into_iter();
+        let expr = expr(&mut tokens_iter);
+        let zero = Node::new(Token::INT(0), None, None);
+        let three = Node::new(Token::INT(3), None, None);
+        let ans = Node::new(Token::MINUS, Some(zero), Some(three));
+        assert_eq!(ans, expr);
     }
 }
