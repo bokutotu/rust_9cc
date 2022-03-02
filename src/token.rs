@@ -72,6 +72,8 @@ pub enum Token<'a> {
     EXCLAMATIONEQ,
     // =
     EQ,
+    // ==
+    EQEQ,
     // ,
     CONMA,
     // .
@@ -168,43 +170,75 @@ fn int(code: &Code) -> Option<Token<'_>> {
 }
 
 macro_rules! impl_single_ident {
-    ($fn_name:ident, $ident:expr, $token:expr) => {
-        fn $fn_name(code: &Code) -> Option<Token<'_>> {
+    ($($ident:expr,$token:expr),*) => {
+        fn single_ident(code: &Code) -> Option<Token<'_>> {
             pass_space(code);
             match code.now() {
-                Some($ident) => { 
-                    code.inc_idx();
-                    return Some($token) 
-                },
-                _ => return None,
-            };
-        }
-    }
-}
-impl_single_ident!(plus, '+', Token::PLUS);
-impl_single_ident!(minus, '-', Token::MINUS);
-impl_single_ident!(astarisk, '*', Token::ASTARISK);
-impl_single_ident!(slash, '/', Token::SLASH);
-impl_single_ident!(lparenthsis, '(', Token::LPARENTHESIS);
-impl_single_ident!(rparenthsis, ')', Token::RPARENTHESIS);
-impl_single_ident!(colon, ';', Token::COLON);
-
-macro_rules! token_new_impl {
-    ($($fn_name:expr ),*) => {
-        impl Token<'_> {
-            fn new(code: &Code) -> Option<Token<'_>> {
                 $(
-                    match $fn_name(code) {
-                        Some(x) => return Some(x),
-                        _ => (),
-                    };
+                    Some($ident) => {
+                        code.inc_idx();
+                        return Some($token)
+                    },
                  )*
-                None
+                _ => return None
             }
         }
     }
 }
-token_new_impl!(plus, minus, astarisk, slash, lparenthsis, rparenthsis, colon, int);
+impl_single_ident!(
+    '+', Token::PLUS,
+    '-', Token::MINUS,
+    '*', Token::ASTARISK,
+    '=', Token::EQ,
+    '>', Token::GREATER,
+    '<', Token::LESS,
+    '/', Token::SLASH,
+    ';', Token::COLON,
+    '(', Token::LPARENTHESIS,
+    ')', Token::RPARENTHESIS,
+    '!', Token::EXCLAMATION
+);
+
+macro_rules! impl_double_ident {
+    ($($ident1:expr, $ident2:expr, $token:expr),*) => {
+        fn double_ident(code: &Code) -> Option<Token<'_>> {
+            pass_space(code);
+            let now_2_char = code.now_2_char();
+            $(
+                if let Some(($ident1, $ident2)) = now_2_char {
+                    code.inc_idx();
+                    code.inc_idx();
+                    return Some($token)
+                }
+            )*
+            None
+        }
+    }
+}
+impl_double_ident!(
+    '=', '=', Token::EQEQ, 
+    '!', '=', Token::EXCLAMATIONEQ,
+    '>', '=', Token::GREATEREQ,
+    '<', '=', Token::LESSEQ
+);
+
+impl Token<'_> {
+    fn new(code: &Code) -> Option<Token<'_>> {
+        let int = int(code);
+        if int.is_some() {
+            return int
+        }
+        let double = double_ident(code);
+        if double.is_some() {
+            return double
+        };
+        let single = single_ident(code);
+        if single.is_some() {
+            return single
+        }
+        None
+    }
+}
 
 impl<'a> Eq for Token<'a> {}
 
@@ -214,6 +248,7 @@ pub struct Tokens<'a> {
     len: Cell<usize>
 }
 
+#[derive(Debug)]
 pub struct TokensIter<'a> {
     value: Tokens<'a>,
     index: usize,
@@ -295,6 +330,30 @@ fn test_minus() {
             vec![Token::MINUS, Token::INT(1)]
         ),
         len: Cell::new(2),
+    };
+    assert_eq!(ans, tokens);
+}
+
+#[test]
+fn test_eqeq() {
+    let code_str = "10 ==   10";
+    let code = Code::new(code_str);
+    let token = Tokens::parse(&code);
+    let ans = Tokens {
+        value: RefCell::new(vec![Token::INT(10), Token::EQEQ, Token::INT(10)]),
+        len: Cell::new(3),
+    };
+    assert_eq!(ans, token);
+}
+
+#[test]
+fn test_noteq() {
+    let code = "10 != 10";
+    let code = Code::new(code);
+    let tokens = Tokens::parse(&code);
+    let ans = Tokens {
+        value: RefCell::new(vec![Token::INT(10), Token::EXCLAMATIONEQ, Token::INT(10)]),
+        len: Cell::new(3),
     };
     assert_eq!(ans, tokens);
 }

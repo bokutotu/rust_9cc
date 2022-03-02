@@ -11,15 +11,15 @@ pub fn gen(node: &Node) -> String {
     let inner = gen_inner(node);
 
     assembly.push_str(&inner);
-    assembly.push_str("\tpop rax\n");
-    assembly.push_str("\tret\n");
+    assembly.push_str("    pop rax\n");
+    assembly.push_str("    ret\n");
     assembly
 }
 
 fn gen_inner(node: &Node) -> String {
     let mut assembly = String::new();
     if let Some(num) = node.num_expect() {
-        let tmp = format!("\tpush {}\n", num);
+        let tmp = format!("    push {}\n", num);
         assembly.push_str(&tmp);
         return assembly
     }
@@ -29,44 +29,56 @@ fn gen_inner(node: &Node) -> String {
     assembly.push_str(&gen_inner(&*lhs));
     assembly.push_str(&gen_inner(&*rhs));
 
-    assembly.push_str("\tpop rdi\n");
-    assembly.push_str("\tpop rax\n");
+    assembly.push_str("    pop rdi\n");
+    assembly.push_str("    pop rax\n");
     
-    match node.kind() {
-        &Token::PLUS => {
-            assembly.push_str("\tadd rax, rdi\n");
+    match *node.kind() {
+        Token::PLUS => {
+            assembly.push_str("    add rax, rdi\n");
         },
-        &Token::MINUS => {
-            assembly.push_str("\tsub rax, rdi\n");
+        Token::MINUS => {
+            assembly.push_str("    sub rax, rdi\n");
         },
-        &Token::ASTARISK => {
-            assembly.push_str("\timul rax, rdi\n");
+        Token::ASTARISK => {
+            assembly.push_str("    imul rax, rdi\n");
         },
-        &Token::SLASH => {
-            assembly.push_str("\tcpo\n");
-            assembly.push_str("\tidiv rdi\n");
+        Token::SLASH => {
+            assembly.push_str("    cqo\n");
+            assembly.push_str("    idiv rdi\n");
+        },
+        Token::EQEQ => {
+            assembly.push_str("    cmp rax, rdi\n");
+            assembly.push_str("    sete al\n");
+            assembly.push_str("    movzb rax, al\n");
+        },
+        Token::EXCLAMATIONEQ => {
+            assembly.push_str("    cmp rax, rdi\n");
+            assembly.push_str("    setne al\n");
+            assembly.push_str("    movzb rax, al\n");
+        },
+        Token::GREATER => {
+            assembly.push_str("    cmp rdi, rax\n");
+            assembly.push_str("    setl al\n");
+            assembly.push_str("    movzb rax, al\n");
+        },
+        Token::GREATEREQ => {
+            assembly.push_str("    cmp rdi, rax\n");
+            assembly.push_str("    setle al\n");
+            assembly.push_str("    movzb rax, al\n");
+        },
+        Token::LESS => {
+            assembly.push_str("    cmp rax, rdi\n");
+            assembly.push_str("    setl al\n");
+            assembly.push_str("    movzb rax, al\n");
+        },
+        Token::LESSEQ => {
+            assembly.push_str("    cmp rax, rdi\n");
+            assembly.push_str("    setle al\n");
+            assembly.push_str("    movzb rax, al\n");
         },
         _ => {unreachable!()},
     }
-    assembly.push_str("\tpush rax\n");
+    assembly.push_str("    push rax\n");
     assembly
 }
 
-#[cfg(test)]
-mod test_gen_code {
-    use crate::node::Node;
-    use crate::token::Token;
-    use super::gen_inner;
-    #[test]
-    fn one_plus_two() {
-        let two = Node::new(Token::INT(2), None, None);
-        let three = Node::new(Token::INT(3), None, None);
-        let four = Node::new(Token::INT(4), None, None);
-        let five = Node::new(Token::INT(5), None, None);
-        let two_ast_three = Node::new(Token::ASTARISK, Some(two), Some(three));
-        let four_ast_five = Node::new(Token::ASTARISK, Some(four), Some(five));
-        let node = Node::new(Token::ASTARISK, Some(two_ast_three), Some(four_ast_five));
-        let assembly = gen_inner(&node);
-        println!("{:?}", assembly);
-    }
-}

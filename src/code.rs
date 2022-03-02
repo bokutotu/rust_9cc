@@ -19,8 +19,20 @@ impl Code {
     }
 
     pub fn now(&self) -> Option<char> {
-        if self.idx.get() >= self.len { return None }
+        if self.is_end() { return None }
         Some(self.code[self.idx.get()])
+    }
+
+    pub fn now_2_char(&self) -> Option<(char, char)> {
+        if self.idx.get() + 2 > self.len { return None }
+        Some((self.code[self.idx.get()], self.code[self.idx.get() + 1]))
+    }
+
+    pub fn now_3_char(&self) -> Option<(char, char, char)> {
+        if self.idx.get() + 3 > self.len { return None }
+        Some((
+            self.code[self.idx.get()], self.code[self.idx.get() + 1], self.code[self.idx.get() + 2]
+        ))
     }
 
     pub fn inc_idx(&self) {
@@ -30,6 +42,18 @@ impl Code {
     pub fn is_end(&self) -> bool {
         self.len == self.idx.get()
     }
+}
+
+#[test]
+fn test_now() {
+    let code_str = "103 + 12";
+    let code = Code::new(code_str);
+    let now_1 = code.now().unwrap();
+    assert_eq!('1', now_1);
+    let now_2 = code.now_2_char().unwrap();
+    assert_eq!(('1', '0'),now_2);
+    let now_3 = code.now_3_char().unwrap();
+    assert_eq!(('1', '0', '3'),now_3);
 }
 
 fn char_to_num(value: char) -> Option<u64> {

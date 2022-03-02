@@ -54,49 +54,44 @@ impl<'a> Node<'a> {
 }
 
 pub fn expr<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
-    let mut node = mul(tokens_iter);
-    loop {
-        match tokens_iter.next() {
-            Some(Token::PLUS) => {
-                node = Node::new(Token::PLUS, Some(node), Some(mul(tokens_iter)));
-            },
-            Some(Token::MINUS) => {
-                node = Node::new(Token::MINUS, Some(node), Some(mul(tokens_iter)));
-            },
-            _ => {
-                tokens_iter.back();
-                break
-            },
-        };
-    }
-    node
+    equality(tokens_iter)
 }
 
-fn mul<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
-    let mut node = unary(tokens_iter);
-    loop {
-        match tokens_iter.next() {
-            Some(Token::ASTARISK) => {
-                node = Node::new(Token::ASTARISK, Some(node), Some(unary(tokens_iter)));
-            },
-            Some(Token::SLASH) => {
-                node = Node::new(Token::SLASH, Some(node), Some(unary(tokens_iter)));
-            },
-            _ => {
-                tokens_iter.back();
-                break
-            },
-        };
+macro_rules! impl_node_function {
+    ($fn_name:ident, $child_fn:ident, $($token:path),*) => {
+        fn $fn_name<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
+            let mut node = $child_fn(tokens_iter);
+            loop {
+                match tokens_iter.next() {
+                    $(
+                        Some($token) => {
+                            node = Node::new($token, Some(node), Some($child_fn(tokens_iter)));
+                        },
+                    )*
+                    _ => {
+                        tokens_iter.back();
+                        break;
+                    },
+                }
+            }
+            node
+        }
     }
-    node
 }
+impl_node_function!(equality, relational, Token::EQEQ, Token::EXCLAMATIONEQ);
+impl_node_function!(
+    relational, add, Token::GREATER, Token::GREATEREQ, Token::LESS, Token::LESSEQ);
+impl_node_function!(add, mul, Token::PLUS, Token::MINUS);
+impl_node_function!(mul, unary, Token::ASTARISK, Token::SLASH);
 
 fn unary<'a>(tokens_iter: &mut TokensIter<'a>) -> Node<'a> {
     let token = tokens_iter.next().expect("error");
     if Token::MINUS == token {
         let zero = Token::INT(0);
         let zero_node = Node::new(zero, None, None);
-        return Node::new(Token::MINUS, Some(zero_node), Some(primary(tokens_iter)));
+        return Node::new(Token::MINUS, Some(zero_node), Some(unary(tokens_iter)));
+    } else if Token::PLUS == token {
+        return primary(tokens_iter);
     } else {
         tokens_iter.back();
         return primary(tokens_iter);
