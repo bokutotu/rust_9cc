@@ -1,36 +1,83 @@
 use crate::token::Token;
-use crate::node::Node;
+use crate::node::{Nodes, Node};
+use crate::objs::Obj;
 
-pub fn gen(node: &Node) -> String {
+fn prologue(offset: usize) -> String {
+    format!("    push rbp\n    mov rbp, rsp\n    sub rsp, {:?}\n", offset)
+}
+
+fn epiloge() -> String {
+    "    mov rsp, rbp\n    pop rbp\n".to_string()
+}
+
+fn load_from_stack(offset: usize, target_register: &str) -> String {
+    format!("    mov {:}, qword ptr [rbp - {:}]\n", target_register, offset)
+}
+
+fn store_to_stack(offset: usize, target_register: &str) -> String {
+    format!("    mov qword ptr [rbp - {:}], {:}\n", offset, target_register)
+}
+
+pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
     let mut assembly = String::new();
 
     assembly.push_str(".intel_syntax noprefix\n");
     assembly.push_str(".globl main\n");
     assembly.push_str("main:\n");
-    
-    let inner = gen_inner(node);
 
-    assembly.push_str(&inner);
-    assembly.push_str("    pop rax\n");
+    assembly.push_str(&prologue((objs.len() + 1) * 8));
+
+    for node in nodes.into_iter() {
+        match node.variable_offset_expect(objs) {
+            Some(x) => {
+                assembly.push_str(&load_from_stack((x+1) * 8, "rax"));
+                // assembly.push_str("    push rax\n");
+            },
+            None => {
+                let node_code = gen_node(&*node, objs);
+                assembly.push_str(&node_code);
+            },
+        }
+    }
+
+    // assembly.push_str("    pop rax\n");
+    assembly.push_str(&epiloge());
     assembly.push_str("    ret\n");
     assembly
 }
 
-fn gen_inner(node: &Node) -> String {
+fn gen_node(node: &Node, objs: &Obj) -> String {
     let mut assembly = String::new();
     if let Some(num) = node.num_expect() {
-        let tmp = format!("    push {}\n", num);
-        assembly.push_str(&tmp);
+        assembly.push_str(&format!("    mov rax, {}\n", num));
         return assembly
     }
-    
+
+    if let Some(offset) = node.variable_offset_expect(objs) {
+        let offset = (offset + 1) * 8;
+        assembly.push_str(&load_from_stack(offset, "rax"));
+        // assembly.push_str("    push rax\n");
+        return assembly
+    }
+
+
     let lhs = node.lhs();
     let rhs = node.rhs();
-    assembly.push_str(&gen_inner(&*lhs));
-    assembly.push_str(&gen_inner(&*rhs));
 
+    if Token::EQ == *node.kind() {
+        let variable_offset = lhs
+            .variable_offset_expect(objs)
+            .expect("error");
+        assembly.push_str(&gen_node(rhs, objs));
+        assembly.push_str(&store_to_stack((variable_offset + 1) * 8, "rax"));
+        return assembly
+    }
+
+    assembly.push_str(&gen_node(&*rhs, objs));
+    assembly.push_str("    push rax\n");
+
+    assembly.push_str(&gen_node(&*lhs, objs));
     assembly.push_str("    pop rdi\n");
-    assembly.push_str("    pop rax\n");
     
     match *node.kind() {
         Token::PLUS => {
@@ -78,7 +125,7 @@ fn gen_inner(node: &Node) -> String {
         },
         _ => {unreachable!()},
     }
-    assembly.push_str("    push rax\n");
+    // assembly.push_str("    push rax\n");
     assembly
 }
 

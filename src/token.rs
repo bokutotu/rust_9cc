@@ -1,9 +1,9 @@
 use std::cell::{RefCell, Cell};
 
-use crate::code::{Code, strtol, pass_space};
+use crate::code::{Code, strtol, pass_space, ident as code_ident};
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Token<'a> {
+#[derive(PartialEq, Debug, Clone)]
+pub enum Token {
     // +
     PLUS,
     // +=
@@ -158,10 +158,21 @@ pub enum Token<'a> {
     // while
     WHILE,
     // name of identifier
-    IDENTIFIER(&'a str, usize),
+    // String -> valable name, usize -> offset from rbp
+    VARIABLE(String),
 }
 
-fn int(code: &Code) -> Option<Token<'_>> {
+impl Token {
+    pub fn variable(&self) -> Option<String> {
+        let onwed = self.clone();
+        if let Token::VARIABLE(name) = onwed {
+            return Some(name)
+        }
+        None
+    }
+}
+
+fn int(code: &Code) -> Option<Token> {
     if let Some(x) = strtol(code) {
         return Some(Token::INT(x));
     } else {
@@ -169,13 +180,13 @@ fn int(code: &Code) -> Option<Token<'_>> {
     }
 }
 
-macro_rules! impl_single_ident {
-    ($($ident:expr,$token:expr),*) => {
-        fn single_ident(code: &Code) -> Option<Token<'_>> {
+macro_rules! impl_single_operator {
+    ($($operator:expr,$token:expr),*) => {
+        fn single_operator(code: &Code) -> Option<Token> {
             pass_space(code);
             match code.now() {
                 $(
-                    Some($ident) => {
+                    Some($operator) => {
                         code.inc_idx();
                         return Some($token)
                     },
@@ -185,7 +196,7 @@ macro_rules! impl_single_ident {
         }
     }
 }
-impl_single_ident!(
+impl_single_operator!(
     '+', Token::PLUS,
     '-', Token::MINUS,
     '*', Token::ASTARISK,
@@ -199,13 +210,13 @@ impl_single_ident!(
     '!', Token::EXCLAMATION
 );
 
-macro_rules! impl_double_ident {
-    ($($ident1:expr, $ident2:expr, $token:expr),*) => {
-        fn double_ident(code: &Code) -> Option<Token<'_>> {
+macro_rules! impl_double_operator {
+    ($($operator1:expr, $operator2:expr, $token:expr),*) => {
+        fn double_operator(code: &Code) -> Option<Token> {
             pass_space(code);
             let now_2_char = code.now_2_char();
             $(
-                if let Some(($ident1, $ident2)) = now_2_char {
+                if let Some(($operator1, $operator2)) = now_2_char {
                     code.inc_idx();
                     code.inc_idx();
                     return Some($token)
@@ -215,49 +226,60 @@ macro_rules! impl_double_ident {
         }
     }
 }
-impl_double_ident!(
+impl_double_operator!(
     '=', '=', Token::EQEQ, 
     '!', '=', Token::EXCLAMATIONEQ,
     '>', '=', Token::GREATEREQ,
     '<', '=', Token::LESSEQ
 );
 
-impl Token<'_> {
-    fn new(code: &Code) -> Option<Token<'_>> {
+fn ident(code: &Code) -> Option<Token> {
+    match code_ident(code) {
+        Some(x) => Some(Token::VARIABLE(x)),
+        None => None,
+    }
+}
+
+impl Token {
+    fn new(code: &Code) -> Option<Token> {
         let int = int(code);
         if int.is_some() {
             return int
         }
-        let double = double_ident(code);
+        let double = double_operator(code);
         if double.is_some() {
             return double
         };
-        let single = single_ident(code);
+        let single = single_operator(code);
         if single.is_some() {
             return single
+        }
+        let ident = ident(code);
+        if ident.is_some() {
+            return ident
         }
         None
     }
 }
 
-impl<'a> Eq for Token<'a> {}
+impl<'a> Eq for Token {}
 
 #[derive(PartialEq, Debug)]
-pub struct Tokens<'a> {
-    value: RefCell<Vec<Token<'a>>>,
+pub struct Tokens {
+    value: RefCell<Vec<Token>>,
     len: Cell<usize>
 }
 
 #[derive(Debug)]
-pub struct TokensIter<'a> {
-    value: Tokens<'a>,
+pub struct TokensIter {
+    value: Tokens,
     index: usize,
     length: usize,
 }
 
-impl<'a> Eq for Tokens<'a> {}
+impl Eq for Tokens {}
 
-impl<'a> Tokens<'a> {
+impl Tokens {
     /// new Tokens
     fn new() -> Self {
         Tokens {
@@ -266,7 +288,7 @@ impl<'a> Tokens<'a> {
         }
     }
 
-    fn push(&self, token: Token<'a>) {
+    fn push(&self, token: Token) {
         self.value.borrow_mut().push(token);
         let _ = self.len.set(self.len.get() + 1);
     }
@@ -282,54 +304,64 @@ impl<'a> Tokens<'a> {
         tokens
     }
 
-    pub fn into_iter(self) -> TokensIter<'a> {
+    pub fn into_iter(self) -> TokensIter {
         let len = *&self.len.get();
         TokensIter { value: self, index: 0, length: len }
     }
 }
 
-impl<'a> TokensIter<'a> {
+impl TokensIter {
+    pub fn index_reset(&mut self) {
+        self.index = 0;
+    }
+
     pub fn back(&mut self) {
         self.index = self.index - 1;
     }
+
+    pub fn is_end(&self) -> bool {
+        if self.index >= self.length { return true } 
+        else { return false }
+    }
 }
 
-impl<'a> Iterator for TokensIter<'a> {
-    type Item = Token<'a>;
+impl Iterator for TokensIter {
+    type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         if self.index == self.length {
             return None
         }
         self.index = self.index + 1;
         let borrow = self.value.value.borrow();
-        Some(borrow[self.index - 1])
+        let item = borrow[self.index - 1].clone();
+        Some(item)
     }
 }
 
 #[test]
 fn code_2_tokens() {
-    let code_str = "(10+3-2)*3";
+    let code_str = "(10+3-2)*3;";
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
         value: RefCell::new(vec![Token::LPARENTHESIS, Token::INT(10), Token::PLUS, Token::INT(3),
                             Token::MINUS, Token::INT(2), Token::RPARENTHESIS, 
-                            Token::ASTARISK, Token::INT(3)]),
-        len: Cell::new(9),
+                            Token::ASTARISK, Token::INT(3), Token::COLON]),
+        len: Cell::new(10),
     };
     assert_eq!(ans, tokens);
 }
 
 #[test]
 fn test_minus() {
-    let code_str = "-1";
+    let code_str = "-1;";
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
         value: RefCell::new(
-            vec![Token::MINUS, Token::INT(1)]
+            vec![Token::MINUS, Token::INT(1), Token::COLON]
         ),
-        len: Cell::new(2),
+        len: Cell::new(3),
     };
     assert_eq!(ans, tokens);
 }
@@ -358,3 +390,16 @@ fn test_noteq() {
     assert_eq!(ans, tokens);
 }
 
+#[test]
+fn test_ident() {
+    let code_str = "value = 10";
+    let code = Code::new(code_str);
+    let tokens = Tokens::parse(&code);
+    let ans = Tokens {
+        value: RefCell::new(vec![
+            Token::VARIABLE("value".to_string()), Token::EQ, Token::INT(10),
+        ]),
+        len: Cell::new(3),
+    };
+    assert_eq!(ans, tokens);
+}
