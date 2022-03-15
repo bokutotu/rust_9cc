@@ -1,6 +1,6 @@
 use std::cell::{RefCell, Cell};
 
-use crate::code::{Code, strtol, pass_space, ident as code_ident};
+use crate::code::{Code, strtol, pass_space, variable as code_variable};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
@@ -233,8 +233,8 @@ impl_double_operator!(
     '<', '=', Token::LESSEQ
 );
 
-fn ident(code: &Code) -> Option<Token> {
-    match code_ident(code) {
+fn variable(code: &Code) -> Option<Token> {
+    match code_variable(code) {
         Some(x) => Some(Token::VARIABLE(x)),
         None => None,
     }
@@ -254,7 +254,7 @@ impl Token {
         if single.is_some() {
             return single
         }
-        let ident = ident(code);
+        let ident = variable(code);
         if ident.is_some() {
             return ident
         }

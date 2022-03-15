@@ -186,7 +186,7 @@ fn is_ident_element(value: &char) -> bool {
     false
 }
 
-pub fn ident<'a>(code: &Code) -> Option<String> {
+pub fn variable(code: &Code) -> Option<String> {
     let now = code.now().expect("index out of bound");
     if !is_first(&now) {
         return None
