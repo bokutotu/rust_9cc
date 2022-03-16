@@ -22,8 +22,8 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
     let mut assembly = String::new();
 
     assembly.push_str(".intel_syntax noprefix\n");
-    assembly.push_str(".globl main\n");
-    assembly.push_str("main:\n");
+    assembly.push_str(".globl _main\n");
+    assembly.push_str("_main:\n");
 
     assembly.push_str(&prologue((objs.len() + 1) * 8));
 
@@ -96,32 +96,32 @@ fn gen_node(node: &Node, objs: &Obj) -> String {
         Token::EQEQ => {
             assembly.push_str("    cmp rax, rdi\n");
             assembly.push_str("    sete al\n");
-            assembly.push_str("    movzb rax, al\n");
+            assembly.push_str("    movzx eax, al\n");
         },
         Token::EXCLAMATIONEQ => {
             assembly.push_str("    cmp rax, rdi\n");
             assembly.push_str("    setne al\n");
-            assembly.push_str("    movzb rax, al\n");
+            assembly.push_str("    movzx eax, al\n");
         },
         Token::GREATER => {
             assembly.push_str("    cmp rdi, rax\n");
             assembly.push_str("    setl al\n");
-            assembly.push_str("    movzb rax, al\n");
+            assembly.push_str("    movzx eax, al\n");
         },
         Token::GREATEREQ => {
             assembly.push_str("    cmp rdi, rax\n");
             assembly.push_str("    setle al\n");
-            assembly.push_str("    movzb rax, al\n");
+            assembly.push_str("    movzx eax, al\n");
         },
         Token::LESS => {
             assembly.push_str("    cmp rax, rdi\n");
             assembly.push_str("    setl al\n");
-            assembly.push_str("    movzb rax, al\n");
+            assembly.push_str("    movzx eax, al\n");
         },
         Token::LESSEQ => {
             assembly.push_str("    cmp rax, rdi\n");
             assembly.push_str("    setle al\n");
-            assembly.push_str("    movzb rax, al\n");
+            assembly.push_str("    movzx eax, al\n");
         },
         _ => {unreachable!()},
     }

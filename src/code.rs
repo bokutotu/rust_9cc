@@ -209,14 +209,14 @@ pub fn variable(code: &Code) -> Option<String> {
 }
 
 #[test]
-fn ident_test() {
+fn variable_test() {
     let code_str = "oppai = 10";
     let code = Code::new(&code_str);
-    let first_oppai = ident(&code).unwrap();
+    let first_oppai = variable(&code).unwrap();
     assert_eq!(first_oppai, "oppai".to_string());
     assert_eq!(code.now().unwrap(), ' ');
     code.inc_idx();
-    let none = ident(&code);
+    let none = variable(&code);
     assert_eq!(none, None);
     assert_eq!(code.now().unwrap(), '=');
     code.inc_idx();
