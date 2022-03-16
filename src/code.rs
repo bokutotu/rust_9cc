@@ -23,20 +23,6 @@ impl Code {
         Some(self.code[self.index.get()])
     }
 
-    pub fn now_2_char(&self) -> Option<(char, char)> {
-        if self.index.get() + 2 > self.len { return None }
-        Some((self.code[self.index.get()], self.code[self.index.get() + 1]))
-    }
-
-    pub fn now_3_char(&self) -> Option<(char, char, char)> {
-        if self.index.get() + 3 > self.len { return None }
-        Some((
-            self.code[self.index.get()], 
-            self.code[self.index.get() + 1], 
-            self.code[self.index.get() + 2]
-        ))
-    }
-
     pub fn inc_idx_n(&self, n: usize) {
         if self.index.get() + n <= self.len {
             self.index.set(self.index.get() + n);
@@ -66,10 +52,6 @@ fn test_now() {
     let code = Code::new(code_str);
     let now_1 = code.now().unwrap();
     assert_eq!('1', now_1);
-    let now_2 = code.now_2_char().unwrap();
-    assert_eq!(('1', '0'),now_2);
-    let now_3 = code.now_3_char().unwrap();
-    assert_eq!(('1', '0', '3'),now_3);
 }
 
 fn char_to_num(value: char) -> Option<u64> {
