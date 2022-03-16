@@ -209,6 +209,10 @@ macro_rules! impl_token_new {
     ($($operator: expr, $operator_string: expr), *) => {
         impl Token {
             fn new(code: &Code) -> Option<Token> {
+                $(
+                    let res = operator($operator_string, code, $operator);
+                    if res.is_some() { return res }
+                 )*
                 pass_space(code);
                 if let Some(x) = int(code) {
                     return Some(x)
@@ -216,16 +220,39 @@ macro_rules! impl_token_new {
                 if let Some(x) = variable(code) {
                     return Some(x)
                 }
-                $(
-                    let res = operator($operator_string, code, $operator);
-                    if res.is_some() { return res }
-                 )*
                 return None
             }
         }
     }
 }
 impl_token_new!(
+    Token::AUTO, "auto",
+    Token::BREAK, "break",
+    Token::CASE, "case",
+    Token::CHAR, "char",
+    Token::CONST, "const",
+    Token::CONTINUE, "continue",
+    Token::DEFAULT, "default",
+    Token::DO, "do",
+    Token::ELSE, "else",
+    Token::ENUM, "enum",
+    Token::EXTERN, "extern",
+    Token::FOR, "for",
+    Token::GOTO, "goto",
+    Token::IF, "if",
+    Token::LONG, "long",
+    Token::REGISATER, "register",
+    Token::RETURN, "return",
+    Token::SIZEOF, "sizeof",
+    Token::SHORT, "short",
+    Token::SWITCH, "swich",
+    Token::SIGNED, "signed",
+    Token::TYPEDEF, "typedef",
+    Token::UNION, "union",
+    Token::UNSIGNED, "unsigned",
+    Token::VOID, "void",
+    Token::VOLATILE, "volatile",
+    Token::WHILE, "while",
     Token::EQEQ, "==",
     Token::EXCLAMATIONEQ, "!=",
     Token::GREATEREQ, ">=",
@@ -383,4 +410,13 @@ fn test_ident() {
         len: Cell::new(3),
     };
     assert_eq!(ans, tokens);
+}
+
+#[test]
+fn test_return() {
+    let code_str = "return";
+    let code = Code::new(code_str);
+    let tokens = Tokens::parse(&code);
+    let ans = Tokens { value: RefCell::new(vec![Token::RETURN]), len: Cell::new(1) } ;
+    assert_eq!(tokens, ans);
 }
