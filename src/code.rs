@@ -4,7 +4,7 @@ use std::cell::Cell;
 pub struct Code {
     code: Vec<char>,
     len: usize,
-    idx: Cell<usize>
+    index: Cell<usize>
 }
 
 impl Code {
@@ -14,33 +14,49 @@ impl Code {
         Self {
             code: str_vec,
             len: str_len,
-            idx: Cell::new(0),
+            index: Cell::new(0),
         }
     }
 
     pub fn now(&self) -> Option<char> {
         if self.is_end() { return None }
-        Some(self.code[self.idx.get()])
+        Some(self.code[self.index.get()])
     }
 
     pub fn now_2_char(&self) -> Option<(char, char)> {
-        if self.idx.get() + 2 > self.len { return None }
-        Some((self.code[self.idx.get()], self.code[self.idx.get() + 1]))
+        if self.index.get() + 2 > self.len { return None }
+        Some((self.code[self.index.get()], self.code[self.index.get() + 1]))
     }
 
     pub fn now_3_char(&self) -> Option<(char, char, char)> {
-        if self.idx.get() + 3 > self.len { return None }
+        if self.index.get() + 3 > self.len { return None }
         Some((
-            self.code[self.idx.get()], self.code[self.idx.get() + 1], self.code[self.idx.get() + 2]
+            self.code[self.index.get()], 
+            self.code[self.index.get() + 1], 
+            self.code[self.index.get() + 2]
         ))
     }
 
+    pub fn inc_idx_n(&self, n: usize) {
+        if self.index.get() + n <= self.len {
+            self.index.set(self.index.get() + n);
+        }
+        else { panic!("index error"); }
+    }
+
     pub fn inc_idx(&self) {
-        self.idx.set(self.idx.get() + 1);
+        self.index.set(self.index.get() + 1);
     }
 
     pub fn is_end(&self) -> bool {
-        self.len == self.idx.get()
+        self.len == self.index.get()
+    }
+
+    pub fn now_n_char(&self, n: usize) -> Option<Vec<char>> {
+        if self.index.get() + n <= self.len {
+            return Some(self.code[self.index.get().. self.index.get() + n].to_vec())
+        }
+        None
     }
 }
 

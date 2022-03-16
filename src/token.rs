@@ -180,58 +180,23 @@ fn int(code: &Code) -> Option<Token> {
     }
 }
 
-macro_rules! impl_single_operator {
-    ($($operator:expr,$token:expr),*) => {
-        fn single_operator(code: &Code) -> Option<Token> {
-            pass_space(code);
-            match code.now() {
-                $(
-                    Some($operator) => {
-                        code.inc_idx();
-                        return Some($token)
-                    },
-                 )*
-                _ => return None
-            }
-        }
+fn operator(operator_string: &str, code: &Code, token: Token) -> Option<Token> {
+    let operator_vec: Vec<char> = operator_string.chars().collect();
+    let operator_len = operator_vec.len();
+    if Some(operator_vec) == code.now_n_char(operator_len) {
+        code.inc_idx_n(operator_len);
+        return Some(token);
     }
+    None
 }
-impl_single_operator!(
-    '+', Token::PLUS,
-    '-', Token::MINUS,
-    '*', Token::ASTARISK,
-    '=', Token::EQ,
-    '>', Token::GREATER,
-    '<', Token::LESS,
-    '/', Token::SLASH,
-    ';', Token::COLON,
-    '(', Token::LPARENTHESIS,
-    ')', Token::RPARENTHESIS,
-    '!', Token::EXCLAMATION
-);
 
-macro_rules! impl_double_operator {
-    ($($operator1:expr, $operator2:expr, $token:expr),*) => {
-        fn double_operator(code: &Code) -> Option<Token> {
-            pass_space(code);
-            let now_2_char = code.now_2_char();
-            $(
-                if let Some(($operator1, $operator2)) = now_2_char {
-                    code.inc_idx();
-                    code.inc_idx();
-                    return Some($token)
-                }
-            )*
-            None
-        }
-    }
+#[test]
+fn test_multi_operator() {
+    let code_str = "==";
+    let code = Code::new(code_str);
+    let token = operator("==", &code, Token::EQEQ).unwrap();
+    assert_eq!(token, Token::EQEQ) 
 }
-impl_double_operator!(
-    '=', '=', Token::EQEQ, 
-    '!', '=', Token::EXCLAMATIONEQ,
-    '>', '=', Token::GREATEREQ,
-    '<', '=', Token::LESSEQ
-);
 
 fn variable(code: &Code) -> Option<Token> {
     match code_variable(code) {
@@ -240,27 +205,43 @@ fn variable(code: &Code) -> Option<Token> {
     }
 }
 
-impl Token {
-    fn new(code: &Code) -> Option<Token> {
-        let int = int(code);
-        if int.is_some() {
-            return int
+macro_rules! impl_token_new {
+    ($($operator: expr, $operator_string: expr), *) => {
+        impl Token {
+            fn new(code: &Code) -> Option<Token> {
+                pass_space(code);
+                if let Some(x) = int(code) {
+                    return Some(x)
+                }
+                if let Some(x) = variable(code) {
+                    return Some(x)
+                }
+                $(
+                    let res = operator($operator_string, code, $operator);
+                    if res.is_some() { return res }
+                 )*
+                return None
+            }
         }
-        let double = double_operator(code);
-        if double.is_some() {
-            return double
-        };
-        let single = single_operator(code);
-        if single.is_some() {
-            return single
-        }
-        let ident = variable(code);
-        if ident.is_some() {
-            return ident
-        }
-        None
     }
 }
+impl_token_new!(
+    Token::EQEQ, "==",
+    Token::EXCLAMATIONEQ, "!=",
+    Token::GREATEREQ, ">=",
+    Token::LESSEQ, "<=",
+    Token::PLUS, "+",
+    Token::MINUS, "-",
+    Token::ASTARISK, "*",
+    Token::EQ, "=",
+    Token::GREATER, ">",
+    Token::LESS, "<",
+    Token::SLASH, "/",
+    Token::COLON, ";",
+    Token::LPARENTHESIS, "(",
+    Token::RPARENTHESIS, ")",
+    Token::EXCLAMATION, "!"
+);
 
 impl<'a> Eq for Token {}
 
