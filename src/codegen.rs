@@ -31,7 +31,6 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
         match node.variable_offset_expect(objs) {
             Some(x) => {
                 assembly.push_str(&load_from_stack((x+1) * 8, "rax"));
-                // assembly.push_str("    push rax\n");
             },
             None => {
                 let node_code = gen_node(&*node, objs);
@@ -40,7 +39,6 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
         }
     }
 
-    // assembly.push_str("    pop rax\n");
     assembly.push_str(&epiloge());
     assembly.push_str("    ret\n");
     assembly
@@ -56,7 +54,6 @@ fn gen_node(node: &Node, objs: &Obj) -> String {
     if let Some(offset) = node.variable_offset_expect(objs) {
         let offset = (offset + 1) * 8;
         assembly.push_str(&load_from_stack(offset, "rax"));
-        // assembly.push_str("    push rax\n");
         return assembly
     }
 
@@ -125,7 +122,6 @@ fn gen_node(node: &Node, objs: &Obj) -> String {
         },
         _ => {unreachable!()},
     }
-    // assembly.push_str("    push rax\n");
     assembly
 }
 
