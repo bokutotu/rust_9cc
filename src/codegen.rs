@@ -28,15 +28,17 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
     assembly.push_str(&prologue((objs.len() + 1) * 8));
 
     for node in nodes.into_iter() {
-        match node.variable_offset_expect(objs) {
-            Some(x) => {
-                assembly.push_str(&load_from_stack((x+1) * 8, "rax"));
+        match node.kind() {
+            &Token::RETURN => {
+                let node_code = gen_node(node.lhs(), objs);
+                assembly.push_str(&node_code);
+                break
             },
-            None => {
+            _ => {
                 let node_code = gen_node(&*node, objs);
                 assembly.push_str(&node_code);
             },
-        }
+        };
     }
 
     assembly.push_str(&epiloge());
@@ -50,13 +52,11 @@ fn gen_node(node: &Node, objs: &Obj) -> String {
         assembly.push_str(&format!("    mov rax, {}\n", num));
         return assembly
     }
-
     if let Some(offset) = node.variable_offset_expect(objs) {
         let offset = (offset + 1) * 8;
         assembly.push_str(&load_from_stack(offset, "rax"));
         return assembly
     }
-
 
     let lhs = node.lhs();
     let rhs = node.rhs();

@@ -192,10 +192,10 @@ fn operator(operator_string: &str, code: &Code, token: Token) -> Option<Token> {
 
 #[test]
 fn test_multi_operator() {
-    let code_str = "==";
+    let code_str = "return";
     let code = Code::new(code_str);
-    let token = operator("==", &code, Token::EQEQ).unwrap();
-    assert_eq!(token, Token::EQEQ) 
+    let token = operator("return", &code, Token::RETURN).unwrap();
+    assert_eq!(token, Token::RETURN) 
 }
 
 fn variable(code: &Code) -> Option<Token> {
@@ -209,11 +209,11 @@ macro_rules! impl_token_new {
     ($($operator: expr, $operator_string: expr), *) => {
         impl Token {
             fn new(code: &Code) -> Option<Token> {
+                pass_space(code);
                 $(
                     let res = operator($operator_string, code, $operator);
                     if res.is_some() { return res }
                  )*
-                pass_space(code);
                 if let Some(x) = int(code) {
                     return Some(x)
                 }
@@ -414,9 +414,20 @@ fn test_ident() {
 
 #[test]
 fn test_return() {
-    let code_str = "return";
+    let code_str = "a = 1; return a;";
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
-    let ans = Tokens { value: RefCell::new(vec![Token::RETURN]), len: Cell::new(1) } ;
+    let ans = Tokens { 
+        value: RefCell::new(vec![
+                            Token::VARIABLE("a".to_string()),
+                            Token::EQ,
+                            Token::INT(1),
+                            Token::COLON,
+                            Token::RETURN, 
+                            Token::VARIABLE("a".to_string()),
+                            Token::COLON,
+        ]), 
+        len: Cell::new(7) 
+    } ;
     assert_eq!(tokens, ans);
 }

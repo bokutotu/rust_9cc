@@ -13,18 +13,16 @@ pub struct Node {
 
 impl Node {
     pub fn new(kind_: Token, lhs: Option<Node>, rhs: Option<Node>) -> Self {
-        if let (Some(lhs), Some(rhs)) = (lhs, rhs) {
-            Node { 
-                kind: kind_,
-                lhs: Some(Box::new(lhs)),
-                rhs: Some(Box::new(rhs)),
+        let option_to_option_box = |input: Option<Node>| {
+            match input {
+                Some(x) => Some(Box::new(x)),
+                None => None
             }
-        } else {
-            Node {
-                kind: kind_,
-                lhs: None,
-                rhs: None,
-            }
+        };
+        Node {
+            kind: kind_,
+            lhs: option_to_option_box(lhs),
+            rhs: option_to_option_box(rhs),
         }
     }
 
@@ -132,11 +130,30 @@ pub fn program(tokens_iter: &mut TokensIter) -> Nodes {
     nodes
 }
 
-// stmt = expr ";"
-fn stmt(tokens_iter: &mut TokensIter) -> Node {
+fn return_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
+    if Some(Token::RETURN) == tokens_iter.next() {
+        let expr_node = expr_node(tokens_iter).expect("syntax error");
+        return Some(Node::new(Token::RETURN, Some(expr_node), None))
+    }
+    tokens_iter.back();
+    None
+}
+
+fn expr_node(tokens_iter: &mut TokensIter) -> Option<Node> {
     let expr = expr(tokens_iter);
     if let Some(Token::COLON) = tokens_iter.next() {
-        return expr
+        return Some(expr)
+    }
+    None
+}
+
+// stmt = expr ";" | "return" expr ";" 
+fn stmt(tokens_iter: &mut TokensIter) -> Node {
+    if let Some(x) = return_expr(tokens_iter) {
+        return x;
+    }
+    if let Some(x) = expr_node(tokens_iter) {
+        return x;
     }
     panic!("syntax error");
 }
@@ -314,5 +331,20 @@ mod expr_test {
         let node_b_assign_2 = Node::new(Token::EQ, Some(node_b), Some(node_2));
         assert_eq!(node_a_assign_1, *nodes.get_nth(0));
         assert_eq!(node_b_assign_2, *nodes.get_nth(1));
+    }
+
+    #[test]
+    fn test_return() {
+        let code_str = "a = 1; return a;";
+        let code = Code::new(code_str);
+        let mut tokens_iter = Tokens::parse(&code).into_iter();
+        let nodes = program(&mut tokens_iter);
+        let node_a = Node::new(Token::VARIABLE("a".to_string()), None, None);
+        let node_1 = Node::new(Token::INT(1), None, None);
+        let node_a_assign_1 = Node::new(Token::EQ, Some(node_a), Some(node_1));
+        assert_eq!(node_a_assign_1, *nodes.get_nth(0));
+        let node_a = Node::new(Token::VARIABLE("a".to_string()), None, None);
+        let return_a = Node::new(Token::RETURN, Some(node_a), None);
+        assert_eq!(return_a, *nodes.get_nth(1));
     }
 }
