@@ -210,6 +210,7 @@ macro_rules! impl_token_new {
         impl Token {
             fn new(code: &Code) -> Option<Token> {
                 pass_space(code);
+                if code.is_end() { return None }
                 $(
                     let res = operator($operator_string, code, $operator);
                     if res.is_some() { return res }
