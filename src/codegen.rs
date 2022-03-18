@@ -41,7 +41,7 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
                 break
             },
             _ => {
-                let node_code = gen_node(&*node, objs, &mut block_num);
+                let node_code = gen_node(&node, objs, &mut block_num);
                 assembly.push_str(&node_code);
             },
         };
@@ -67,7 +67,7 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
     let lhs = node.lhs();
     let rhs = node.rhs();
 
-    match *node.kind() {
+    match node.kind() {
         Token::EQ => {
             let variable_offset = lhs
                 .variable_offset_expect(objs)
@@ -79,13 +79,13 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         _ => (),
     }
 
-    assembly.push_str(&gen_node(&*rhs, objs, block_num));
+    assembly.push_str(&gen_node(rhs, objs, block_num));
     assembly.push_str("    push rax\n");
 
-    assembly.push_str(&gen_node(&*lhs, objs, block_num));
+    assembly.push_str(&gen_node(lhs, objs, block_num));
     assembly.push_str("    pop rdi\n");
     
-    match *node.kind() {
+    match node.kind() {
         Token::PLUS => {
             assembly.push_str("    add rax, rdi\n");
         },

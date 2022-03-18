@@ -1,10 +1,7 @@
-use std::rc::Rc;
-use std::cell::{RefCell, Cell};
-
 use crate::token::{Token, TokensIter};
 use crate::objs::Obj;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     kind: Token,
     lhs: Option<Box<Node>>,
@@ -68,7 +65,7 @@ impl Node {
         None
     }
 
-    pub fn lhs(&self) -> &Box<Node> {
+    pub fn lhs(&self) -> &Node {
         if let Some(x) = &self.lhs {
             return x
         } else {
@@ -76,7 +73,7 @@ impl Node {
         }
     }
 
-    pub fn rhs(&self) -> &Box<Node> {
+    pub fn rhs(&self) -> &Node {
         if let Some(x) = &self.rhs {
             return x
         } else {
@@ -91,46 +88,47 @@ impl Node {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Nodes {
-    value: RefCell<Vec<Rc<Node>>>,
-    len: Cell<usize>,
+    value: Vec<Node>,
+    len: usize,
 }
 
 impl Nodes {
     pub fn new() -> Nodes {
-        let value_ = RefCell::new(Vec::new());
-        let len_ = Cell::new(0);
+        let value_ = Vec::new();
+        let len_ = 0;
         Nodes { value: value_, len: len_ }
     }
 
-    pub fn push(&self, item: Node) {
-        self.value.borrow_mut().push(Rc::new(item));
-        self.len.set(self.len.get() + 1);
+    pub fn push(&mut self, item: Node) {
+        self.value.push(item);
+        self.len = self.len + 1;
     }
 
     pub fn into_iter(&self) -> NodeIter {
-        let len_ = &self.len.get();
         NodeIter {
             value: self.clone(),
-            len: *len_,
             idx: 0
         }
     }
 
-    fn get_nth(&self, idx: usize) -> Rc<Node> {
-        self.value.borrow()[idx].clone()
+    fn get_nth(&self, idx: usize) -> Node {
+        self.value[idx].clone()
+    }
+
+    fn len(&self) -> usize {
+        self.len
     }
 }
 
 pub struct NodeIter {
     value: Nodes,
-    len: usize,
     idx: usize,
 }
 
 impl Iterator for NodeIter {
-    type Item = Rc<Node>;
+    type Item = Node;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx == self.len {
+        if self.idx == self.value.len() {
             return None
         }
         self.idx = self.idx + 1;
@@ -140,7 +138,7 @@ impl Iterator for NodeIter {
 
 // program = stmt*
 pub fn program(tokens_iter: &mut TokensIter) -> Nodes {
-    let nodes = Nodes::new();
+    let mut nodes = Nodes::new();
     loop {
         if tokens_iter.is_end() { break }
         let stmt_ = stmt(tokens_iter);
@@ -342,7 +340,7 @@ mod expr_test {
         let three_plus_four = Node::normal_init(
             Token::PLUS, Some(three), Some(four));
         let ans = Node::normal_init(Token::MINUS, Some(one_ast_two), Some(three_plus_four));
-        let nodes = Nodes::new();
+        let mut nodes = Nodes::new();
         nodes.push(ans);
         assert_eq!(nodes, program);
     }
@@ -367,7 +365,7 @@ mod expr_test {
         let nodes = program(&mut tokens_iter);
         let node_0 = nodes.get_nth(0);
         let ans = Node::normal_init(Token::VARIABLE("a".to_string()), None, None);
-        assert_eq!(*node_0, ans);
+        assert_eq!(node_0, ans);
     }
 
     #[test]
@@ -382,8 +380,8 @@ mod expr_test {
         let node_2 = Node::normal_init(Token::INT(2), None, None);
         let node_a_assign_1 = Node::normal_init(Token::EQ, Some(node_a), Some(node_1));
         let node_b_assign_2 = Node::normal_init(Token::EQ, Some(node_b), Some(node_2));
-        assert_eq!(node_a_assign_1, *nodes.get_nth(0));
-        assert_eq!(node_b_assign_2, *nodes.get_nth(1));
+        assert_eq!(node_a_assign_1, nodes.get_nth(0));
+        assert_eq!(node_b_assign_2, nodes.get_nth(1));
     }
 
     #[test]
@@ -395,10 +393,10 @@ mod expr_test {
         let node_a = Node::normal_init(Token::VARIABLE("a".to_string()), None, None);
         let node_1 = Node::normal_init(Token::INT(1), None, None);
         let node_a_assign_1 = Node::normal_init(Token::EQ, Some(node_a), Some(node_1));
-        assert_eq!(node_a_assign_1, *nodes.get_nth(0));
+        assert_eq!(node_a_assign_1, nodes.get_nth(0));
         let node_a = Node::normal_init(Token::VARIABLE("a".to_string()), None, None);
         let return_a = Node::normal_init(Token::RETURN, Some(node_a), None);
-        assert_eq!(return_a, *nodes.get_nth(1));
+        assert_eq!(return_a, nodes.get_nth(1));
     }
 
     #[test]
@@ -415,6 +413,6 @@ mod expr_test {
         let else_content = Node::normal_init(
             Token::RETURN, Some(Node::normal_init(Token::INT(1), None, None)), None);
         let ans_node = Node::if_init(if_condition, if_content, Some(else_content));
-        assert_eq!(ans_node, *nodes.get_nth(0));
+        assert_eq!(ans_node, nodes.get_nth(0));
     }
 }
