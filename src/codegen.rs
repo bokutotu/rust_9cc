@@ -18,8 +18,14 @@ fn store_to_stack(offset: usize, target_register: &str) -> String {
     format!("    mov qword ptr [rbp - {:}], {:}\n", offset, target_register)
 }
 
+fn gen_jump(block_num: usize) -> String {
+    format!(".Lblock_{}", block_num)
+}
+
 pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
     let mut assembly = String::new();
+
+    let mut block_num: usize = 0;
 
     assembly.push_str(".intel_syntax noprefix\n");
     assembly.push_str(".globl _main\n");
@@ -30,12 +36,12 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
     for node in nodes.into_iter() {
         match node.kind() {
             &Token::RETURN => {
-                let node_code = gen_node(node.lhs(), objs);
+                let node_code = gen_node(node.lhs(), objs, &mut block_num);
                 assembly.push_str(&node_code);
                 break
             },
             _ => {
-                let node_code = gen_node(&*node, objs);
+                let node_code = gen_node(&*node, objs, &mut block_num);
                 assembly.push_str(&node_code);
             },
         };
@@ -46,7 +52,7 @@ pub fn gen(nodes: &Nodes, objs: &Obj) -> String {
     assembly
 }
 
-fn gen_node(node: &Node, objs: &Obj) -> String {
+fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
     let mut assembly = String::new();
     if let Some(num) = node.num_expect() {
         assembly.push_str(&format!("    mov rax, {}\n", num));
@@ -61,19 +67,22 @@ fn gen_node(node: &Node, objs: &Obj) -> String {
     let lhs = node.lhs();
     let rhs = node.rhs();
 
-    if Token::EQ == *node.kind() {
-        let variable_offset = lhs
-            .variable_offset_expect(objs)
-            .expect("error");
-        assembly.push_str(&gen_node(rhs, objs));
-        assembly.push_str(&store_to_stack((variable_offset + 1) * 8, "rax"));
-        return assembly
+    match *node.kind() {
+        Token::EQ => {
+            let variable_offset = lhs
+                .variable_offset_expect(objs)
+                .expect("error");
+            assembly.push_str(&gen_node(rhs, objs, block_num));
+            assembly.push_str(&store_to_stack((variable_offset + 1) * 8, "rax"));
+            return assembly
+        },
+        _ => (),
     }
 
-    assembly.push_str(&gen_node(&*rhs, objs));
+    assembly.push_str(&gen_node(&*rhs, objs, block_num));
     assembly.push_str("    push rax\n");
 
-    assembly.push_str(&gen_node(&*lhs, objs));
+    assembly.push_str(&gen_node(&*lhs, objs, block_num));
     assembly.push_str("    pop rdi\n");
     
     match *node.kind() {

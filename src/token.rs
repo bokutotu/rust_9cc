@@ -332,6 +332,17 @@ impl TokensIter {
         if self.index >= self.length { return true } 
         else { return false }
     }
+
+    pub fn consume(&mut self, token: Token) -> bool {
+        let next = self.next().expect("syntax error");
+        if next == token { return true }
+        self.back();
+        false
+    }
+     
+    pub fn consume_or_panic(&mut self, token: Token) {
+        if !self.consume(token) { panic!("syntax error") }
+    }
 }
 
 impl Iterator for TokensIter {
@@ -345,6 +356,17 @@ impl Iterator for TokensIter {
         let item = borrow[self.index - 1].clone();
         Some(item)
     }
+}
+
+#[test]
+fn test_consume() {
+    let code_str = "return 0;";
+    let code = Code::new(code_str);
+    let mut tokens_iter = Tokens::parse(&code).into_iter();
+    let flag = tokens_iter.consume(Token::EQ);
+    assert!(!flag);
+    let flag = tokens_iter.consume(Token::RETURN);
+    assert!(flag);
 }
 
 #[test]
