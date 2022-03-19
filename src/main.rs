@@ -20,7 +20,8 @@ fn main() {
     let objs = Obj::from_tokens(&mut tokens_iter);
     tokens_iter.index_reset();
     let nodes = program(&mut tokens_iter);
-    let assemry = gen(&nodes, &objs);
+    let mut block_num = 0;
+    let assemry = gen(&nodes, &objs, &mut block_num);
 
     let mut file = File::create("res.S").unwrap();
     file.write_all(assemry.as_bytes()).unwrap();

@@ -19,6 +19,15 @@ fn option_node_option_box(input: Option<Node>) -> Option<Box<Node>> {
     }
 }
 
+macro_rules! impl_return_reference {
+    ($method_name: ident, $member: ident) => {
+        pub fn $method_name(&self) -> &Node{
+            if let Some(x) = &self.$member { return x }
+            else { panic!("syntax error"); }
+        }
+    }
+}
+
 impl Node {
     pub fn normal_init(kind_: Token, lhs: Option<Node>, rhs: Option<Node>) -> Self {
         Node {
@@ -64,26 +73,23 @@ impl Node {
         }
         None
     }
-
-    pub fn lhs(&self) -> &Node {
-        if let Some(x) = &self.lhs {
-            return x
-        } else {
-            panic!("error");
-        }
-    }
-
-    pub fn rhs(&self) -> &Node {
-        if let Some(x) = &self.rhs {
-            return x
-        } else {
-            panic!("error");
-        }
-    }
-
+    
     pub fn kind(&self) -> &Token {
         &self.kind
-    } 
+    }
+
+    pub fn is_else(&self) -> bool {
+        if self.kind != Token::IF { 
+            panic!("invalid call is_else method! this method is kind == IF only!");
+        }
+        self.else_content.is_some()
+    }
+
+    impl_return_reference!(lhs, lhs);
+    impl_return_reference!(rhs, rhs);
+    impl_return_reference!(if_condition, if_condition);
+    impl_return_reference!(if_content, if_content);
+    impl_return_reference!(else_content, else_content);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -401,7 +407,7 @@ mod expr_test {
 
     #[test]
     fn test_if_block() {
-        let code_str = "if (a == b) return 0; else return 1;";
+        let code_str = "a = 1; b = 2; if (a == b) return 0; else return 1;";
         let code = Code::new(&code_str);
         let mut tokens_iter = Tokens::parse(&code).into_iter();
         let nodes = program(&mut tokens_iter);
@@ -413,6 +419,6 @@ mod expr_test {
         let else_content = Node::normal_init(
             Token::RETURN, Some(Node::normal_init(Token::INT(1), None, None)), None);
         let ans_node = Node::if_init(if_condition, if_content, Some(else_content));
-        assert_eq!(ans_node, nodes.get_nth(0));
+        assert_eq!(ans_node, nodes.get_nth(2));
     }
 }
