@@ -1,0 +1,8 @@
+version: '3'
+services:
+  rust_9cc:
+    build: .
+    volumes:
+      - .:/rust_9cc
+    stdin_open: true # docker run -i
+    tty: true
