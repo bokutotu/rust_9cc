@@ -4,7 +4,7 @@ use std::cell::Cell;
 pub struct Code {
     code: Vec<char>,
     len: usize,
-    index: Cell<usize>
+    index: Cell<usize>,
 }
 
 impl Code {
@@ -19,15 +19,18 @@ impl Code {
     }
 
     pub fn now(&self) -> Option<char> {
-        if self.is_end() { return None }
+        if self.is_end() {
+            return None;
+        }
         Some(self.code[self.index.get()])
     }
 
     pub fn inc_idx_n(&self, n: usize) {
         if self.index.get() + n <= self.len {
             self.index.set(self.index.get() + n);
+        } else {
+            panic!("index error");
         }
-        else { panic!("index error"); }
     }
 
     pub fn inc_idx(&self) {
@@ -40,7 +43,7 @@ impl Code {
 
     pub fn now_n_char(&self, n: usize) -> Option<Vec<char>> {
         if self.index.get() + n <= self.len {
-            return Some(self.code[self.index.get().. self.index.get() + n].to_vec())
+            return Some(self.code[self.index.get()..self.index.get() + n].to_vec());
         }
         None
     }
@@ -55,29 +58,26 @@ fn test_now() {
 }
 
 fn char_to_num(value: char) -> Option<u64> {
-    match value.to_digit(10) {
-        Some(x) => Some(x as u64),
-        None => None
-    }
+    value.to_digit(10).map(|x| x as u64)
 }
 
 pub fn strtol(code: &Code) -> Option<u64> {
     let now_char = code.now().expect("idx overflow");
     if char_to_num(now_char) == None {
-        return None
+        return None;
     }
     let mut num = 0;
-    loop {
-        let value = match code.now() {
-            Some(x) => x,
-            None => break
-        };
+    while let Some(value) = code.now() {
+        // let value = match code.now() {
+        //     Some(x) => x,
+        //     None => break,
+        // };
         match char_to_num(value) {
-            Some(x) => { 
+            Some(x) => {
                 num = num * 10 + x;
                 code.inc_idx();
-            },
-            None => break
+            }
+            None => break,
         }
     }
     Some(num)
@@ -104,14 +104,10 @@ fn not_num() {
 fn is_alphabet(value: &char) -> bool {
     let value = *value as u32 as usize;
     // A-Z
-    if 65 <= value && value <= 90 {
-        return true;
-    } 
+    let is_large_a_z = (65..=90).contains(&value);
     // a-z
-    else if 97 <= value && value <= 122 {
-        return true;
-    }
-    false
+    let is_small_a_z = (97..=122).contains(&value);
+    is_large_a_z || is_small_a_z
 }
 
 #[test]
@@ -128,7 +124,7 @@ fn alphabet_edge() {
 
 fn is_number(value: &char) -> bool {
     let value = *value as u32 as usize;
-    if 48 <= value && value <= 57 {
+    if (48..=57).contains(&value) {
         return true;
     }
     false
@@ -147,11 +143,7 @@ fn number_edge() {
 }
 
 fn is_first(value: &char) -> bool {
-    if is_alphabet(value) || *value == '_' {
-        return true;
-    } else {
-        return false;
-    }
+    is_alphabet(value) || *value == '_'
 }
 
 #[test]
@@ -187,7 +179,7 @@ fn is_ident_element(value: &char) -> bool {
 pub fn variable(code: &Code) -> Option<String> {
     let now = code.now().expect("index out of bound");
     if !is_first(&now) {
-        return None
+        return None;
     }
     code.inc_idx();
     let mut string = String::new();
@@ -223,15 +215,12 @@ fn variable_test() {
 }
 
 pub fn pass_space(code: &Code) {
-    loop {
-        let now = match code.now() {
-            Some(x) => x,
-            None => break
-        };
+    while let Some(now) = code.now() {
         if now == ' ' {
             code.inc_idx();
             continue;
-        } 
-        else {break}
+        } else {
+            break;
+        }
     }
 }

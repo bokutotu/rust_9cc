@@ -1,31 +1,31 @@
-use crate::token::{Token, TokensIter};
 use crate::objs::Obj;
+use crate::token::{Token, TokensIter};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     kind: Token,
     lhs: Option<Box<Node>>,
     rhs: Option<Box<Node>>,
-    // if 
+    // if
     if_condition: Option<Box<Node>>,
     if_content: Option<Box<Node>>,
     else_content: Option<Box<Node>>,
 }
 
 fn option_node_option_box(input: Option<Node>) -> Option<Box<Node>> {
-    match input {
-        Some(x) => Some(Box::new(x)),
-        None => None
-    }
+    input.map(Box::new)
 }
 
 macro_rules! impl_return_reference {
     ($method_name: ident, $member: ident) => {
-        pub fn $method_name(&self) -> &Node{
-            if let Some(x) = &self.$member { return x }
-            else { panic!("syntax error"); }
+        pub fn $method_name(&self) -> &Node {
+            if let Some(x) = &self.$member {
+                return x;
+            } else {
+                panic!("syntax error");
+            }
         }
-    }
+    };
 }
 
 impl Node {
@@ -61,25 +61,17 @@ impl Node {
 
     pub fn variable_offset_expect(&self, objs: &Obj) -> Option<usize> {
         if let Token::VARIABLE(_) = self.kind() {
-            return Some(
-                objs.variable_offset(
-                    self
-                        .kind()
-                        .clone()
-                        .variable()
-                        .expect("error")
-                )
-            )
+            return Some(objs.variable_offset(self.kind().clone().variable().expect("error")));
         }
         None
     }
-    
+
     pub fn kind(&self) -> &Token {
         &self.kind
     }
 
     pub fn is_else(&self) -> bool {
-        if self.kind != Token::IF { 
+        if self.kind != Token::IF {
             panic!("invalid call is_else method! this method is kind == IF only!");
         }
         self.else_content.is_some()
@@ -98,24 +90,33 @@ pub struct Nodes {
     len: usize,
 }
 
+impl Default for Nodes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Nodes {
     pub fn new() -> Nodes {
         let value_ = Vec::new();
         let len_ = 0;
-        Nodes { value: value_, len: len_ }
+        Nodes {
+            value: value_,
+            len: len_,
+        }
     }
 
     pub fn push(&mut self, item: Node) {
         self.value.push(item);
-        self.len = self.len + 1;
+        self.len += 1;
     }
 
-    pub fn into_iter(&self) -> NodeIter {
-        NodeIter {
-            value: self.clone(),
-            idx: 0
-        }
-    }
+    // pub fn iter(&self) -> NodesIter {
+    //     NodesIter {
+    //         value: self.clone(),
+    //         idx: 0,
+    //     }
+    // }
 
     fn get_nth(&self, idx: usize) -> Node {
         self.value[idx].clone()
@@ -126,18 +127,29 @@ impl Nodes {
     }
 }
 
-pub struct NodeIter {
+impl<'a> IntoIterator for &'a Nodes {
+    type Item = Node;
+    type IntoIter = NodesIter;
+    fn into_iter(self) -> Self::IntoIter {
+        NodesIter {
+            value: self.clone(),
+            idx: 0,
+        }
+    }
+}
+
+pub struct NodesIter {
     value: Nodes,
     idx: usize,
 }
 
-impl Iterator for NodeIter {
+impl Iterator for NodesIter {
     type Item = Node;
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx == self.value.len() {
-            return None
+            return None;
         }
-        self.idx = self.idx + 1;
+        self.idx += 1;
         Some(self.value.get_nth(self.idx - 1))
     }
 }
@@ -146,7 +158,9 @@ impl Iterator for NodeIter {
 pub fn program(tokens_iter: &mut TokensIter) -> Nodes {
     let mut nodes = Nodes::new();
     loop {
-        if tokens_iter.is_end() { break }
+        if tokens_iter.is_end() {
+            break;
+        }
         let stmt_ = stmt(tokens_iter);
         nodes.push(stmt_);
     }
@@ -156,7 +170,7 @@ pub fn program(tokens_iter: &mut TokensIter) -> Nodes {
 fn return_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
     if tokens_iter.consume(Token::RETURN) {
         let expr_node = expr_node(tokens_iter).expect("syntax error");
-        return Some(Node::normal_init(Token::RETURN, Some(expr_node), None))
+        return Some(Node::normal_init(Token::RETURN, Some(expr_node), None));
     }
     None
 }
@@ -169,12 +183,12 @@ fn if_else_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
             tokens_iter.consume_or_panic(Token::RPARENTHESIS);
             let content = stmt(tokens_iter);
             (condition, content)
-        },
-        false => return None
+        }
+        false => return None,
     };
     let else_content = match tokens_iter.consume(Token::ELSE) {
         true => Some(stmt(tokens_iter)),
-        _ => None
+        _ => None,
     };
     Some(Node::if_init(condition, if_content, else_content))
 }
@@ -190,22 +204,28 @@ fn if_else_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
 fn expr_node(tokens_iter: &mut TokensIter) -> Option<Node> {
     let expr = expr(tokens_iter);
     if tokens_iter.consume(Token::COLON) {
-        return Some(expr)
+        return Some(expr);
     }
     None
 }
 
-/// stmt = expr ";" 
-///          | "return" expr ";" 
+/// stmt = expr ";"
+///          | "return" expr ";"
 ///          | "if" "(" expr ")" stmt ("else" stmt)?
 ///          | "while" "(" expr ")" stmt
 ///          | "for" "("expr? ";" expr? ";" expr? ";" ")" stmt
 fn stmt(tokens_iter: &mut TokensIter) -> Node {
-    if let Some(x) = if_else_expr(tokens_iter)  { return x; }
+    if let Some(x) = if_else_expr(tokens_iter) {
+        return x;
+    }
     // if let Some(x) = while_expr(tokens_iter)    { return x; }
     // if let Some(x) = for_expr(tokens_iter)      { return x; }
-    if let Some(x) = return_expr(tokens_iter)   { return x; }
-    if let Some(x) = expr_node(tokens_iter)     { return x; }
+    if let Some(x) = return_expr(tokens_iter) {
+        return x;
+    }
+    if let Some(x) = expr_node(tokens_iter) {
+        return x;
+    }
     panic!("syntax error");
 }
 
@@ -218,11 +238,7 @@ fn expr(tokens_iter: &mut TokensIter) -> Node {
 fn assign(tokens_iter: &mut TokensIter) -> Node {
     let equality_ = equality(tokens_iter);
     if tokens_iter.consume(Token::EQ) {
-        return Node::normal_init(
-            Token::EQ, 
-            Some(equality_), 
-            Some(assign(tokens_iter)), 
-        )
+        return Node::normal_init(Token::EQ, Some(equality_), Some(assign(tokens_iter)));
     }
     equality_
 }
@@ -254,7 +270,13 @@ macro_rules! impl_node_function {
 impl_node_function!(equality, relational, Token::EQEQ, Token::EXCLAMATIONEQ);
 // relational = add('<' add | '<=' add | '>' add | '>=' add) *
 impl_node_function!(
-    relational, add, Token::GREATER, Token::GREATEREQ, Token::LESS, Token::LESSEQ);
+    relational,
+    add,
+    Token::GREATER,
+    Token::GREATEREQ,
+    Token::LESS,
+    Token::LESSEQ
+);
 // mul = mul('+' mul | '-' mul)
 impl_node_function!(add, mul, Token::PLUS, Token::MINUS);
 // mul = unary ('*' unary | '/' unary)*
@@ -266,13 +288,12 @@ fn unary(tokens_iter: &mut TokensIter) -> Node {
     if Token::MINUS == token {
         let zero = Token::INT(0);
         let zero_node = Node::normal_init(zero, None, None);
-        return Node::normal_init(
-            Token::MINUS, Some(zero_node), Some(unary(tokens_iter)));
+        Node::normal_init(Token::MINUS, Some(zero_node), Some(unary(tokens_iter)))
     } else if Token::PLUS == token {
-        return primary(tokens_iter);
+        primary(tokens_iter)
     } else {
         tokens_iter.back();
-        return primary(tokens_iter);
+        primary(tokens_iter)
     }
 }
 
@@ -284,20 +305,22 @@ fn primary(tokens_iter: &mut TokensIter) -> Node {
     };
     if let Some(Token::LPARENTHESIS) = token {
         let expr_ = expr(tokens_iter);
-        if let Some(Token::RPARENTHESIS) = tokens_iter.next() { return expr_ }
+        if let Some(Token::RPARENTHESIS) = tokens_iter.next() {
+            return expr_;
+        }
     }
     if let Some(Token::VARIABLE(_)) = token {
-        return Node::normal_init(token.unwrap(), None, None)
+        return Node::normal_init(token.unwrap(), None, None);
     }
     panic!("syatax error");
 }
 
 #[cfg(test)]
 mod expr_test {
+    use super::{expr, program, Node, Nodes};
     use crate::code::Code;
     use crate::token::{Token, Tokens};
-    use super::{expr, Node, Nodes, program};
-    
+
     #[test]
     fn test_1() {
         let code_str = "1;";
@@ -314,7 +337,7 @@ mod expr_test {
         let code = Code::new(code_str);
         let mut tokens_iter = Tokens::parse(&code).into_iter();
         let expr_ = expr(&mut tokens_iter);
-        let one = Node::normal_init(Token::INT(1),None,None);
+        let one = Node::normal_init(Token::INT(1), None, None);
         let two = Node::normal_init(Token::INT(2), None, None);
         let ans = Node::normal_init(Token::PLUS, Some(one), Some(two));
         assert_eq!(ans, expr_);
@@ -343,8 +366,7 @@ mod expr_test {
         let three = Node::normal_init(Token::INT(3), None, None);
         let four = Node::normal_init(Token::INT(4), None, None);
         let one_ast_two = Node::normal_init(Token::ASTARISK, Some(one), Some(two));
-        let three_plus_four = Node::normal_init(
-            Token::PLUS, Some(three), Some(four));
+        let three_plus_four = Node::normal_init(Token::PLUS, Some(three), Some(four));
         let ans = Node::normal_init(Token::MINUS, Some(one_ast_two), Some(three_plus_four));
         let mut nodes = Nodes::new();
         nodes.push(ans);
@@ -414,10 +436,16 @@ mod expr_test {
         let a_node = Node::normal_init(Token::VARIABLE("a".to_string()), None, None);
         let b_node = Node::normal_init(Token::VARIABLE("b".to_string()), None, None);
         let if_condition = Node::normal_init(Token::EQEQ, Some(a_node), Some(b_node));
-        let if_content = Node::normal_init( 
-            Token::RETURN, Some(Node::normal_init(Token::INT(0), None, None)), None);
+        let if_content = Node::normal_init(
+            Token::RETURN,
+            Some(Node::normal_init(Token::INT(0), None, None)),
+            None,
+        );
         let else_content = Node::normal_init(
-            Token::RETURN, Some(Node::normal_init(Token::INT(1), None, None)), None);
+            Token::RETURN,
+            Some(Node::normal_init(Token::INT(1), None, None)),
+            None,
+        );
         let ans_node = Node::if_init(if_condition, if_content, Some(else_content));
         assert_eq!(ans_node, nodes.get_nth(2));
     }

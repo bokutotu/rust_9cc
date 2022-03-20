@@ -1,5 +1,5 @@
 default:
-	cargo build
+	cargo build --release
 
 test:
 	cargo fmt

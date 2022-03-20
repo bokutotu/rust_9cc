@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use crate::token::{Token, TokensIter};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Obj ( HashMap<String, usize> );
+pub struct Obj(HashMap<String, usize>);
 
 impl Obj {
     fn new() -> Self {
-        Obj ( HashMap::new() )
+        Obj(HashMap::new())
     }
 
     fn insert(&mut self, key: String) {
@@ -27,18 +27,19 @@ impl Obj {
     pub fn from_tokens(tokens_iter: &mut TokensIter) -> Self {
         let mut res = Self::new();
         for token in tokens_iter {
-            match token {
-                Token::VARIABLE(variable) => {
-                    res.insert(variable);
-                },
-                _ => (),
-            };
+            if let Token::VARIABLE(variable) = token {
+                res.insert(variable);
+            }
         }
         res
     }
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -51,11 +52,10 @@ fn test_tokens_iter_to_obj() {
     let tokens = Tokens::parse(&code);
     let mut tokens_iter = tokens.into_iter();
     let obj = Obj::from_tokens(&mut tokens_iter);
-    let ans = Obj (
-        HashMap::from([
-            ("oppai".to_string(), 0), ("boyoyon".to_string(), 1), ("boron".to_string(),2)
-        ])
-    );
+    let ans = Obj(HashMap::from([
+        ("oppai".to_string(), 0),
+        ("boyoyon".to_string(), 1),
+        ("boron".to_string(), 2),
+    ]));
     assert_eq!(ans, obj)
 }
-

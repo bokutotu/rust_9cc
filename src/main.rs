@@ -3,10 +3,10 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use rust_9cc::code::Code;
-use rust_9cc::node::program;
-use rust_9cc::token::Tokens;
 use rust_9cc::codegen::gen;
+use rust_9cc::node::program;
 use rust_9cc::objs::Obj;
+use rust_9cc::token::Tokens;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -15,7 +15,7 @@ fn main() {
     }
 
     let code_str = &args[1];
-    let code = Code::new(&code_str);
+    let code = Code::new(code_str);
     let mut tokens_iter = Tokens::parse(&code).into_iter();
     let objs = Obj::from_tokens(&mut tokens_iter);
     tokens_iter.index_reset();

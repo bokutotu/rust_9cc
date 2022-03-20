@@ -1,6 +1,6 @@
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 
-use crate::code::{Code, strtol, pass_space, variable as code_variable};
+use crate::code::{pass_space, strtol, variable as code_variable, Code};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
@@ -166,18 +166,14 @@ impl Token {
     pub fn variable(&self) -> Option<String> {
         let onwed = self.clone();
         if let Token::VARIABLE(name) = onwed {
-            return Some(name)
+            return Some(name);
         }
         None
     }
 }
 
 fn int(code: &Code) -> Option<Token> {
-    if let Some(x) = strtol(code) {
-        return Some(Token::INT(x));
-    } else {
-        return None
-    }
+    strtol(code).map(Token::INT)
 }
 
 fn operator(operator_string: &str, code: &Code, token: Token) -> Option<Token> {
@@ -195,14 +191,11 @@ fn test_multi_operator() {
     let code_str = "return";
     let code = Code::new(code_str);
     let token = operator("return", &code, Token::RETURN).unwrap();
-    assert_eq!(token, Token::RETURN) 
+    assert_eq!(token, Token::RETURN)
 }
 
 fn variable(code: &Code) -> Option<Token> {
-    match code_variable(code) {
-        Some(x) => Some(Token::VARIABLE(x)),
-        None => None,
-    }
+    code_variable(code).map(Token::VARIABLE)
 }
 
 macro_rules! impl_token_new {
@@ -227,48 +220,90 @@ macro_rules! impl_token_new {
     }
 }
 impl_token_new!(
-    Token::AUTO, "auto",
-    Token::BREAK, "break",
-    Token::CASE, "case",
-    Token::CHAR, "char",
-    Token::CONST, "const",
-    Token::CONTINUE, "continue",
-    Token::DEFAULT, "default",
-    Token::DO, "do",
-    Token::ELSE, "else",
-    Token::ENUM, "enum",
-    Token::EXTERN, "extern",
-    Token::FOR, "for",
-    Token::GOTO, "goto",
-    Token::IF, "if",
-    Token::LONG, "long",
-    Token::REGISATER, "register",
-    Token::RETURN, "return",
-    Token::SIZEOF, "sizeof",
-    Token::SHORT, "short",
-    Token::SWITCH, "swich",
-    Token::SIGNED, "signed",
-    Token::TYPEDEF, "typedef",
-    Token::UNION, "union",
-    Token::UNSIGNED, "unsigned",
-    Token::VOID, "void",
-    Token::VOLATILE, "volatile",
-    Token::WHILE, "while",
-    Token::EQEQ, "==",
-    Token::EXCLAMATIONEQ, "!=",
-    Token::GREATEREQ, ">=",
-    Token::LESSEQ, "<=",
-    Token::PLUS, "+",
-    Token::MINUS, "-",
-    Token::ASTARISK, "*",
-    Token::EQ, "=",
-    Token::GREATER, ">",
-    Token::LESS, "<",
-    Token::SLASH, "/",
-    Token::COLON, ";",
-    Token::LPARENTHESIS, "(",
-    Token::RPARENTHESIS, ")",
-    Token::EXCLAMATION, "!"
+    Token::AUTO,
+    "auto",
+    Token::BREAK,
+    "break",
+    Token::CASE,
+    "case",
+    Token::CHAR,
+    "char",
+    Token::CONST,
+    "const",
+    Token::CONTINUE,
+    "continue",
+    Token::DEFAULT,
+    "default",
+    Token::DO,
+    "do",
+    Token::ELSE,
+    "else",
+    Token::ENUM,
+    "enum",
+    Token::EXTERN,
+    "extern",
+    Token::FOR,
+    "for",
+    Token::GOTO,
+    "goto",
+    Token::IF,
+    "if",
+    Token::LONG,
+    "long",
+    Token::REGISATER,
+    "register",
+    Token::RETURN,
+    "return",
+    Token::SIZEOF,
+    "sizeof",
+    Token::SHORT,
+    "short",
+    Token::SWITCH,
+    "swich",
+    Token::SIGNED,
+    "signed",
+    Token::TYPEDEF,
+    "typedef",
+    Token::UNION,
+    "union",
+    Token::UNSIGNED,
+    "unsigned",
+    Token::VOID,
+    "void",
+    Token::VOLATILE,
+    "volatile",
+    Token::WHILE,
+    "while",
+    Token::EQEQ,
+    "==",
+    Token::EXCLAMATIONEQ,
+    "!=",
+    Token::GREATEREQ,
+    ">=",
+    Token::LESSEQ,
+    "<=",
+    Token::PLUS,
+    "+",
+    Token::MINUS,
+    "-",
+    Token::ASTARISK,
+    "*",
+    Token::EQ,
+    "=",
+    Token::GREATER,
+    ">",
+    Token::LESS,
+    "<",
+    Token::SLASH,
+    "/",
+    Token::COLON,
+    ";",
+    Token::LPARENTHESIS,
+    "(",
+    Token::RPARENTHESIS,
+    ")",
+    Token::EXCLAMATION,
+    "!"
 );
 
 impl<'a> Eq for Token {}
@@ -276,7 +311,7 @@ impl<'a> Eq for Token {}
 #[derive(PartialEq, Debug)]
 pub struct Tokens {
     value: RefCell<Vec<Token>>,
-    len: Cell<usize>
+    len: Cell<usize>,
 }
 
 #[derive(Debug)]
@@ -308,14 +343,24 @@ impl Tokens {
             if let Some(x) = Token::new(code) {
                 tokens.push(x);
             }
-            if code.is_end() { break }
+            if code.is_end() {
+                break;
+            }
         }
         tokens
     }
+}
 
-    pub fn into_iter(self) -> TokensIter {
-        let len = *&self.len.get();
-        TokensIter { value: self, index: 0, length: len }
+impl IntoIterator for Tokens {
+    type Item = Token;
+    type IntoIter = TokensIter;
+    fn into_iter(self) -> Self::IntoIter {
+        let len = self.len.get();
+        TokensIter {
+            value: self,
+            index: 0,
+            length: len,
+        }
     }
 }
 
@@ -325,23 +370,26 @@ impl TokensIter {
     }
 
     pub fn back(&mut self) {
-        self.index = self.index - 1;
+        self.index -= 1;
     }
 
     pub fn is_end(&self) -> bool {
-        if self.index >= self.length { return true } 
-        else { return false }
+        self.index >= self.length
     }
 
     pub fn consume(&mut self, token: Token) -> bool {
         let next = self.next().expect("syntax error");
-        if next == token { return true }
+        if next == token {
+            return true;
+        }
         self.back();
         false
     }
-     
+
     pub fn consume_or_panic(&mut self, token: Token) {
-        if !self.consume(token) { panic!("syntax error") }
+        if !self.consume(token) {
+            panic!("syntax error")
+        }
     }
 }
 
@@ -349,9 +397,9 @@ impl Iterator for TokensIter {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         if self.index == self.length {
-            return None
+            return None;
         }
-        self.index = self.index + 1;
+        self.index += 1;
         let borrow = self.value.value.borrow();
         let item = borrow[self.index - 1].clone();
         Some(item)
@@ -375,9 +423,18 @@ fn code_2_tokens() {
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
-        value: RefCell::new(vec![Token::LPARENTHESIS, Token::INT(10), Token::PLUS, Token::INT(3),
-                            Token::MINUS, Token::INT(2), Token::RPARENTHESIS, 
-                            Token::ASTARISK, Token::INT(3), Token::COLON]),
+        value: RefCell::new(vec![
+            Token::LPARENTHESIS,
+            Token::INT(10),
+            Token::PLUS,
+            Token::INT(3),
+            Token::MINUS,
+            Token::INT(2),
+            Token::RPARENTHESIS,
+            Token::ASTARISK,
+            Token::INT(3),
+            Token::COLON,
+        ]),
         len: Cell::new(10),
     };
     assert_eq!(ans, tokens);
@@ -389,9 +446,7 @@ fn test_minus() {
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
-        value: RefCell::new(
-            vec![Token::MINUS, Token::INT(1), Token::COLON]
-        ),
+        value: RefCell::new(vec![Token::MINUS, Token::INT(1), Token::COLON]),
         len: Cell::new(3),
     };
     assert_eq!(ans, tokens);
@@ -428,7 +483,9 @@ fn test_ident() {
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
         value: RefCell::new(vec![
-            Token::VARIABLE("value".to_string()), Token::EQ, Token::INT(10),
+            Token::VARIABLE("value".to_string()),
+            Token::EQ,
+            Token::INT(10),
         ]),
         len: Cell::new(3),
     };
@@ -440,17 +497,17 @@ fn test_return() {
     let code_str = "a = 1; return a;";
     let code = Code::new(code_str);
     let tokens = Tokens::parse(&code);
-    let ans = Tokens { 
+    let ans = Tokens {
         value: RefCell::new(vec![
-                            Token::VARIABLE("a".to_string()),
-                            Token::EQ,
-                            Token::INT(1),
-                            Token::COLON,
-                            Token::RETURN, 
-                            Token::VARIABLE("a".to_string()),
-                            Token::COLON,
-        ]), 
-        len: Cell::new(7) 
-    } ;
+            Token::VARIABLE("a".to_string()),
+            Token::EQ,
+            Token::INT(1),
+            Token::COLON,
+            Token::RETURN,
+            Token::VARIABLE("a".to_string()),
+            Token::COLON,
+        ]),
+        len: Cell::new(7),
+    };
     assert_eq!(tokens, ans);
 }
