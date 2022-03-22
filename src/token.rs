@@ -160,6 +160,8 @@ pub enum Token {
     // name of identifier
     // String -> valable name, usize -> offset from rbp
     VARIABLE(String),
+    // block
+    BLOCK,
 }
 
 impl Token {
@@ -214,7 +216,7 @@ macro_rules! impl_token_new {
                 if let Some(x) = variable(code) {
                     return Some(x)
                 }
-                return None
+                panic!("invalid car");
             }
         }
     }
@@ -303,7 +305,11 @@ impl_token_new!(
     Token::RPARENTHESIS,
     ")",
     Token::EXCLAMATION,
-    "!"
+    "!",
+    Token::RCBRACKET,
+    "}",
+    Token::LCBRACKET,
+    "{"
 );
 
 impl<'a> Eq for Token {}

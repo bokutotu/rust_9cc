@@ -69,14 +69,16 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         assembly.push_str(&load_from_stack(offset, "rax"));
         return assembly;
     }
-
     if &Token::RETURN == node.kind() {
         let node_code = gen_node(node.lhs(), objs, block_num);
         assembly.push_str(&node_code);
         assembly.push_str("    jmp .L_return\n");
         return assembly;
     }
-
+    if &Token::BLOCK == node.kind() {
+        assembly.push_str(&gen_nodes(node.block(), objs, block_num));
+        return assembly;
+    }
     //        if condtion assembly
     //        jump-1-source
     //        if content assembly

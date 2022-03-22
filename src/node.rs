@@ -10,15 +10,13 @@ pub struct Node {
     if_condition: Option<Box<Node>>,
     if_content: Option<Box<Node>>,
     else_content: Option<Box<Node>>,
-}
-
-fn option_node_option_box(input: Option<Node>) -> Option<Box<Node>> {
-    input.map(Box::new)
+    // block
+    block: Option<Box<Nodes>>,
 }
 
 macro_rules! impl_return_reference {
-    ($method_name: ident, $member: ident) => {
-        pub fn $method_name(&self) -> &Node {
+    ($method_name: ident, $member: ident, $return_type: ty) => {
+        pub fn $method_name(&self) -> &$return_type {
             if let Some(x) = &self.$member {
                 return x;
             } else {
@@ -32,11 +30,12 @@ impl Node {
     pub fn normal_init(kind_: Token, lhs: Option<Node>, rhs: Option<Node>) -> Self {
         Node {
             kind: kind_,
-            lhs: option_node_option_box(lhs),
-            rhs: option_node_option_box(rhs),
+            lhs: lhs.map(Box::new),
+            rhs: rhs.map(Box::new),
             if_condition: None,
             if_content: None,
             else_content: None,
+            block: None,
         }
     }
 
@@ -45,9 +44,22 @@ impl Node {
             kind: Token::IF,
             lhs: None,
             rhs: None,
-            if_condition: option_node_option_box(Some(if_condition)),
-            if_content: option_node_option_box(Some(if_content)),
-            else_content: option_node_option_box(else_content),
+            if_condition: Some(Box::new(if_condition)),
+            if_content: Some(Box::new(if_content)),
+            else_content: else_content.map(Box::new),
+            block: None,
+        }
+    }
+
+    pub fn block_init(block: Nodes) -> Self {
+        Node {
+            kind: Token::BLOCK,
+            lhs: None,
+            rhs: None,
+            if_condition: None,
+            if_content: None,
+            else_content: None,
+            block: Some(Box::new(block)),
         }
     }
 
@@ -77,11 +89,12 @@ impl Node {
         self.else_content.is_some()
     }
 
-    impl_return_reference!(lhs, lhs);
-    impl_return_reference!(rhs, rhs);
-    impl_return_reference!(if_condition, if_condition);
-    impl_return_reference!(if_content, if_content);
-    impl_return_reference!(else_content, else_content);
+    impl_return_reference!(lhs, lhs, Node);
+    impl_return_reference!(rhs, rhs, Node);
+    impl_return_reference!(if_condition, if_condition, Node);
+    impl_return_reference!(if_content, if_content, Node);
+    impl_return_reference!(else_content, else_content, Node);
+    impl_return_reference!(block, block, Nodes);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -110,13 +123,6 @@ impl Nodes {
         self.value.push(item);
         self.len += 1;
     }
-
-    // pub fn iter(&self) -> NodesIter {
-    //     NodesIter {
-    //         value: self.clone(),
-    //         idx: 0,
-    //     }
-    // }
 
     fn get_nth(&self, idx: usize) -> Node {
         self.value[idx].clone()
@@ -154,14 +160,17 @@ impl Iterator for NodesIter {
     }
 }
 
-// program = stmt*
+/// program = stmt*
 pub fn program(tokens_iter: &mut TokensIter) -> Nodes {
     let mut nodes = Nodes::new();
     loop {
         if tokens_iter.is_end() {
             break;
         }
-        let stmt_ = stmt(tokens_iter);
+        let stmt_ = match stmt(tokens_iter) {
+            Some(x) => x,
+            None => continue,
+        };
         nodes.push(stmt_);
     }
     nodes
@@ -181,27 +190,23 @@ fn if_else_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
             tokens_iter.consume_or_panic(Token::LPARENTHESIS);
             let condition = expr(tokens_iter);
             tokens_iter.consume_or_panic(Token::RPARENTHESIS);
-            let content = stmt(tokens_iter);
+            let content = stmt(tokens_iter).expect("syntax error");
             (condition, content)
         }
         false => return None,
     };
     let else_content = match tokens_iter.consume(Token::ELSE) {
-        true => Some(stmt(tokens_iter)),
+        true => stmt(tokens_iter),
         _ => None,
     };
     Some(Node::if_init(condition, if_content, else_content))
 }
 
-// fn while_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
-//     None
-// }
-
-// fn for_expr(tokens_iter: &mut TokensIter) -> Option<Node> {
-//     None
-// }
-
 fn expr_node(tokens_iter: &mut TokensIter) -> Option<Node> {
+    // 初手 ";"だった場合None
+    if tokens_iter.consume(Token::COLON) {
+        return None;
+    }
     let expr = expr(tokens_iter);
     if tokens_iter.consume(Token::COLON) {
         return Some(expr);
@@ -209,32 +214,54 @@ fn expr_node(tokens_iter: &mut TokensIter) -> Option<Node> {
     None
 }
 
-/// stmt = expr ";"
+fn block(tokens_iter: &mut TokensIter) -> Option<Node> {
+    if tokens_iter.consume(Token::LCBRACKET) {
+        let mut nodes = Nodes::new();
+        loop {
+            let block = match stmt(tokens_iter) {
+                Some(x) => x,
+                None => continue,
+            };
+            nodes.push(block);
+            if tokens_iter.consume(Token::RCBRACKET) {
+                break;
+            }
+        }
+        return Some(Node::block_init(nodes));
+    }
+    None
+}
+
+/// stmt = expr? ";"
 ///          | "return" expr ";"
 ///          | "if" "(" expr ")" stmt ("else" stmt)?
 ///          | "while" "(" expr ")" stmt
 ///          | "for" "("expr? ";" expr? ";" expr? ";" ")" stmt
-fn stmt(tokens_iter: &mut TokensIter) -> Node {
+///          | "{" stmt * "}"
+fn stmt(tokens_iter: &mut TokensIter) -> Option<Node> {
     if let Some(x) = if_else_expr(tokens_iter) {
-        return x;
+        return Some(x);
+    }
+    if let Some(x) = block(tokens_iter) {
+        return Some(x);
     }
     // if let Some(x) = while_expr(tokens_iter)    { return x; }
     // if let Some(x) = for_expr(tokens_iter)      { return x; }
     if let Some(x) = return_expr(tokens_iter) {
-        return x;
+        return Some(x);
     }
     if let Some(x) = expr_node(tokens_iter) {
-        return x;
+        return Some(x);
     }
-    panic!("syntax error");
+    None
 }
 
-// expr = assign
+/// expr = assign
 fn expr(tokens_iter: &mut TokensIter) -> Node {
     assign(tokens_iter)
 }
 
-// assign = equality("=" assign)?
+/// assign = equality("=" assign)?
 fn assign(tokens_iter: &mut TokensIter) -> Node {
     let equality_ = equality(tokens_iter);
     if tokens_iter.consume(Token::EQ) {
@@ -297,7 +324,7 @@ fn unary(tokens_iter: &mut TokensIter) -> Node {
     }
 }
 
-// primary = num | ident | '(' expr ')'
+/// primary = num | ident | '(' expr ')'
 fn primary(tokens_iter: &mut TokensIter) -> Node {
     let token = tokens_iter.next();
     if let Some(Token::INT(_)) = token {
@@ -448,5 +475,18 @@ mod expr_test {
         );
         let ans_node = Node::if_init(if_condition, if_content, Some(else_content));
         assert_eq!(ans_node, nodes.get_nth(2));
+    }
+
+    #[test]
+    fn test_block() {
+        let code_str = "{ a = 10; b = 10; return a; }";
+        let block_str = "a = 10; b = 10; return a;";
+        let code = Code::new(code_str);
+        let block = Code::new(block_str);
+        let mut code_iter = Tokens::parse(&code).into_iter();
+        let mut block_iter = Tokens::parse(&block).into_iter();
+        let code_nodes = program(&mut code_iter);
+        let block_nodes = program(&mut block_iter);
+        assert_eq!(block_nodes, *code_nodes.get_nth(0).block());
     }
 }

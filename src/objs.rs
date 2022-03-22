@@ -5,8 +5,14 @@ use crate::token::{Token, TokensIter};
 #[derive(Clone, Debug, PartialEq)]
 pub struct Obj(HashMap<String, usize>);
 
+impl Default for Obj {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Obj {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Obj(HashMap::new())
     }
 
