@@ -64,19 +64,19 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         assembly.push_str(&format!("    mov rax, {}\n", num));
         return assembly;
     }
-    if let Some(offset) = node.variable_offset_expect(objs) {
+    if let Some((offset, _)) = node.variable_offset_expect(objs) {
         let offset = (offset + 1) * 8;
         assembly.push_str(&load_from_stack(offset, "rax"));
         return assembly;
     }
     if &Token::RETURN == node.kind() {
-        let node_code = gen_node(node.lhs(), objs, block_num);
+        let node_code = gen_node(&node.lhs(), objs, block_num);
         assembly.push_str(&node_code);
         assembly.push_str("    jmp .L_return\n");
         return assembly;
     }
     if &Token::BLOCK == node.kind() {
-        assembly.push_str(&gen_nodes(node.block(), objs, block_num));
+        assembly.push_str(&gen_nodes(&node.block(), objs, block_num));
         return assembly;
     }
     //        if condtion assembly
@@ -93,7 +93,7 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
     //                          else content assembly
     //                          jump-2-direction
     if &Token::IF == node.kind() {
-        let if_condition_assembly = gen_node(node.if_condition(), objs, block_num);
+        let if_condition_assembly = gen_node(&node.if_condition(), objs, block_num);
         assembly.push_str(&if_condition_assembly);
         assembly.push_str("    cmp rax, 1\n");
 
@@ -102,7 +102,7 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         assembly.push_str(&jump_1_source_assembly);
 
         let mut nodes = Nodes::new();
-        nodes.push(node.if_content().clone());
+        nodes.push(node.if_content());
         let if_content_assembly = gen_nodes(&nodes, objs, block_num);
         assembly.push_str(&if_content_assembly);
 
@@ -116,7 +116,7 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
             assembly.push_str(&jump_1_direction);
 
             let mut nodes = Nodes::new();
-            nodes.push(node.else_content().clone());
+            nodes.push(node.else_content());
             let else_content_assembly = gen_nodes(&nodes, objs, block_num);
             assembly.push_str(&else_content_assembly);
 
@@ -133,16 +133,16 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
     let rhs = node.rhs();
 
     if &Token::EQ == node.kind() {
-        let variable_offset = lhs.variable_offset_expect(objs).expect("error");
-        assembly.push_str(&gen_node(rhs, objs, block_num));
+        let (variable_offset, _) = lhs.variable_offset_expect(objs).expect("error");
+        assembly.push_str(&gen_node(&rhs, objs, block_num));
         assembly.push_str(&store_to_stack((variable_offset + 1) * 8, "rax"));
         return assembly;
     }
 
-    assembly.push_str(&gen_node(rhs, objs, block_num));
+    assembly.push_str(&gen_node(&rhs, objs, block_num));
     assembly.push_str("    push rax\n");
 
-    assembly.push_str(&gen_node(lhs, objs, block_num));
+    assembly.push_str(&gen_node(&lhs, objs, block_num));
     assembly.push_str("    pop rdi\n");
 
     match node.kind() {

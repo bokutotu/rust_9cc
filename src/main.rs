@@ -5,7 +5,7 @@ use std::io::prelude::*;
 use rust_9cc::code::Code;
 use rust_9cc::codegen::gen;
 use rust_9cc::node::program;
-use rust_9cc::objs::Obj;
+use rust_9cc::objs::{variable_block_check, Obj};
 use rust_9cc::token::Tokens;
 
 fn main() {
@@ -20,6 +20,7 @@ fn main() {
     let objs = Obj::from_tokens(&mut tokens_iter);
     tokens_iter.index_reset();
     let nodes = program(&mut tokens_iter);
+    variable_block_check(&nodes, &objs);
     let mut block_num = 0;
     let assemry = gen(&nodes, &objs, &mut block_num);
 

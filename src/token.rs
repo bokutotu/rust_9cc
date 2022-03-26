@@ -2,6 +2,10 @@ use std::cell::{Cell, RefCell};
 
 use crate::code::{pass_space, strtol, variable as code_variable, Code};
 
+thread_local!(
+    static DEPTH: RefCell<usize> = RefCell::new(0);
+);
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     // +
@@ -159,16 +163,16 @@ pub enum Token {
     WHILE,
     // name of identifier
     // String -> valable name, usize -> offset from rbp
-    VARIABLE(String),
+    VARIABLE(String, usize),
     // block
     BLOCK,
 }
 
 impl Token {
-    pub fn variable(&self) -> Option<String> {
+    pub fn variable(&self) -> Option<(String, usize)> {
         let onwed = self.clone();
-        if let Token::VARIABLE(name) = onwed {
-            return Some(name);
+        if let Token::VARIABLE(name, depth) = onwed {
+            return Some((name, depth));
         }
         None
     }
@@ -197,7 +201,9 @@ fn test_multi_operator() {
 }
 
 fn variable(code: &Code) -> Option<Token> {
-    code_variable(code).map(Token::VARIABLE)
+    DEPTH.with(|depth| {
+        code_variable(code).map(|variable| Token::VARIABLE(variable, *depth.borrow()))
+    })
 }
 
 macro_rules! impl_token_new {
@@ -347,6 +353,12 @@ impl Tokens {
         let tokens = Tokens::new();
         loop {
             if let Some(x) = Token::new(code) {
+                if x == Token::LCBRACKET {
+                    DEPTH.with(|depth| *depth.borrow_mut() += 1);
+                }
+                if x == Token::RCBRACKET {
+                    DEPTH.with(|depth| *depth.borrow_mut() -= 1);
+                }
                 tokens.push(x);
             }
             if code.is_end() {
@@ -489,7 +501,7 @@ fn test_ident() {
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
         value: RefCell::new(vec![
-            Token::VARIABLE("value".to_string()),
+            Token::VARIABLE("value".to_string(), 0),
             Token::EQ,
             Token::INT(10),
         ]),
@@ -505,15 +517,48 @@ fn test_return() {
     let tokens = Tokens::parse(&code);
     let ans = Tokens {
         value: RefCell::new(vec![
-            Token::VARIABLE("a".to_string()),
+            Token::VARIABLE("a".to_string(), 0),
             Token::EQ,
             Token::INT(1),
             Token::COLON,
             Token::RETURN,
-            Token::VARIABLE("a".to_string()),
+            Token::VARIABLE("a".to_string(), 0),
             Token::COLON,
         ]),
         len: Cell::new(7),
     };
     assert_eq!(tokens, ans);
+}
+
+#[test]
+fn test_block_depth() {
+    let code_str = "a = 1; { b = 2; { c = 3; } } d = 4;";
+    let code = Code::new(code_str);
+    let tokens = Tokens::parse(&code);
+    let ans = Tokens {
+        value: RefCell::new(vec![
+            Token::VARIABLE("a".to_string(), 0),
+            Token::EQ,
+            Token::INT(1),
+            Token::COLON,
+            Token::LCBRACKET,
+            Token::VARIABLE("b".to_string(), 1),
+            Token::EQ,
+            Token::INT(2),
+            Token::COLON,
+            Token::LCBRACKET,
+            Token::VARIABLE("c".to_string(), 2),
+            Token::EQ,
+            Token::INT(3),
+            Token::COLON,
+            Token::RCBRACKET,
+            Token::RCBRACKET,
+            Token::VARIABLE("d".to_string(), 0),
+            Token::EQ,
+            Token::INT(4),
+            Token::COLON,
+        ]),
+        len: Cell::new(20),
+    };
+    assert_eq!(ans, tokens)
 }
