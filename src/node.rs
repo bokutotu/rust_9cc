@@ -1,11 +1,5 @@
-// use std::cell::RefCell;
-
 use crate::objs::Obj;
 use crate::token::{Token, TokensIter};
-
-// thread_local! {
-//     static DEPTH: RefCell<usize> = RefCell::new(0);
-// }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
@@ -18,6 +12,9 @@ pub struct Node {
     else_content: Option<Box<Node>>,
     // block
     block: Option<Box<Nodes>>,
+    // while
+    while_condition: Option<Box<Node>>,
+    while_content: Option<Box<Node>>,
 }
 
 macro_rules! impl_return_reference {
@@ -42,6 +39,8 @@ impl Node {
             if_content: None,
             else_content: None,
             block: None,
+            while_condition: None,
+            while_content: None,
         }
     }
 
@@ -54,6 +53,8 @@ impl Node {
             if_content: Some(Box::new(if_content)),
             else_content: else_content.map(Box::new),
             block: None,
+            while_content: None,
+            while_condition: None,
         }
     }
 
@@ -66,6 +67,22 @@ impl Node {
             if_content: None,
             else_content: None,
             block: Some(Box::new(block)),
+            while_content: None,
+            while_condition: None,
+        }
+    }
+
+    pub fn while_init(while_condition: Node, while_content: Node) -> Node {
+        Node {
+            kind: Token::WHILE,
+            lhs: None,
+            rhs: None,
+            if_condition: None,
+            if_content: None,
+            else_content: None,
+            block: None,
+            while_condition: Some(Box::new(while_condition)),
+            while_content: Some(Box::new(while_content)),
         }
     }
 
@@ -101,6 +118,8 @@ impl Node {
     impl_return_reference!(if_content, try_if_content, if_content, Node);
     impl_return_reference!(else_content, try_else_content, else_content, Node);
     impl_return_reference!(block, try_block, block, Nodes);
+    impl_return_reference!(while_condition, try_while_condtion, while_condition, Node);
+    impl_return_reference!(while_content, try_while_content, while_content, Node);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -123,7 +142,6 @@ impl Nodes {
         Nodes {
             value: value_,
             len: len_,
-            // depth: DEPTH.with(|depth| *depth.borrow()),
         }
     }
 
@@ -139,10 +157,6 @@ impl Nodes {
     fn len(&self) -> usize {
         self.len
     }
-
-    // pub fn depth(&self) -> usize {
-    //     self.depth
-    // }
 }
 
 impl<'a> IntoIterator for &'a Nodes {
@@ -248,6 +262,17 @@ fn block(tokens_iter: &mut TokensIter) -> Option<Node> {
     None
 }
 
+fn while_node(tokens_iter: &mut TokensIter) -> Option<Node> {
+    if tokens_iter.consume(Token::WHILE) {
+        tokens_iter.consume_or_panic(Token::LPARENTHESIS);
+        let while_condition = expr(tokens_iter);
+        tokens_iter.consume_or_panic(Token::RPARENTHESIS);
+        let while_content = stmt(tokens_iter).expect("syntax error");
+        return Some(Node::while_init(while_condition, while_content));
+    }
+    None
+}
+
 /// stmt = expr? ";"
 ///          | "return" expr ";"
 ///          | "if" "(" expr ")" stmt ("else" stmt)?
@@ -262,6 +287,9 @@ fn stmt(tokens_iter: &mut TokensIter) -> Option<Node> {
         return Some(x);
     }
     if let Some(x) = return_expr(tokens_iter) {
+        return Some(x);
+    }
+    if let Some(x) = while_node(tokens_iter) {
         return Some(x);
     }
     if let Some(x) = expr_node(tokens_iter) {
@@ -493,14 +521,21 @@ mod expr_test {
         assert_eq!(ans_node, nodes.get_nth(2));
     }
 
-    // #[test]
-    // fn test_depth() {
-    //     let code_str = "{ a = 10; { a = 20; } b = 10; return a; }";
-    //     let code = Code::new(code_str);
-    //     let mut code_iter = Tokens::parse(&code).into_iter();
-    //     let code_nodes = program(&mut code_iter);
-    //     println!("{:?}", code_nodes);
-    //     assert_eq!(code_nodes.get_nth(0).block().depth(), 1);
-    //     assert_eq!(code_nodes.get_nth(0).block().get_nth(2).block().depth(), 2);
-    // }
+    #[test]
+    fn while_test() {
+        let code_str = "while (a == 10) { a = a + 1; }";
+        let code = Code::new(code_str);
+        let mut tokens_iter = Tokens::parse(&code).into_iter();
+        let nodes = program(&mut tokens_iter);
+        let condtion_code = "a == 10";
+        let code = Code::new(condtion_code);
+        let mut tokens_iter = Tokens::parse(&code).into_iter();
+        let condtion_node = expr(&mut tokens_iter);
+        let content_code = "{ a = a + 1; }";
+        let code = Code::new(content_code);
+        let mut tokens_iter = Tokens::parse(&code).into_iter();
+        let content_node = program(&mut tokens_iter);
+        let ans = Node::while_init(condtion_node, content_node.get_nth(0));
+        assert_eq!(ans, nodes.get_nth(0));
+    }
 }

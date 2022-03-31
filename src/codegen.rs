@@ -129,6 +129,23 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         return assembly;
     }
 
+    if &Token::WHILE == node.kind() {
+        let while_first_jump = gen_jump(block_num);
+        let while_end_jump = gen_jump(block_num);
+        assembly.push_str(&format!("{:}:\n", &while_first_jump));
+        let while_condition = node.while_condition();
+        let while_condition_striong = gen_node(&while_condition, objs, block_num);
+        assembly.push_str(&while_condition_striong);
+        assembly.push_str("    cmp rax, 0\n");
+        assembly.push_str(&format!("    jne {:}\n", while_end_jump));
+        let while_content = node.while_content();
+        let while_content_string = gen_node(&while_content, objs, block_num);
+        assembly.push_str(&while_content_string);
+        assembly.push_str(&format!("    jmp {:}\n", &while_first_jump));
+        assembly.push_str(&format!("{:}:\n", &while_end_jump));
+        return assembly;
+    }
+
     let lhs = node.lhs();
     let rhs = node.rhs();
 
