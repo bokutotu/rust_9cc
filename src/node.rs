@@ -1,7 +1,7 @@
 use crate::objs::Obj;
 use crate::token::{Token, TokensIter};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Node {
     kind: Token,
     lhs: Option<Box<Node>>,
@@ -15,6 +15,71 @@ pub struct Node {
     // while
     while_condition: Option<Box<Node>>,
     while_content: Option<Box<Node>>,
+    // for
+    for_first: Option<Box<Node>>,
+    for_second: Option<Box<Node>>,
+    for_third: Option<Box<Node>>,
+    for_content: Option<Box<Node>>,
+}
+
+impl std::fmt::Debug for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.kind() {
+            Token::VARIABLE(..) | Token::INT(..) | Token::DOUBLE(..) | Token::FLOAT(..) => {
+                write!(f, "Node  kind:{:?}", self.kind())?
+            }
+            _ => writeln!(f, "Node\nkind:{:?}", self.kind())?,
+        };
+        if let Some(x) = self.try_lhs() {
+            write!(f, "lhs: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_rhs() {
+            write!(f, "rhs: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_if_condition() {
+            write!(f, "if_condition: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_if_content() {
+            write!(f, "if_content: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_else_content() {
+            write!(f, "else_content: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_block() {
+            write!(f, "block: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_while_condition() {
+            write!(f, "while_condition: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_while_content() {
+            write!(f, "while_content: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_for_first() {
+            writeln!(f, "for_first: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_for_second() {
+            writeln!(f, "for_second: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_for_third() {
+            writeln!(f, "for_third: {:?}", x)?;
+        }
+
+        if let Some(x) = self.try_for_content() {
+            write!(f, "for_content: {:?}", x)?;
+        }
+
+        Ok(())
+    }
 }
 
 macro_rules! impl_return_reference {
@@ -29,6 +94,31 @@ macro_rules! impl_return_reference {
     };
 }
 
+fn inc_depth(node: &mut Node) {
+    if let Some((variable, depth)) = node.kind().variable() {
+        node.kind = Token::VARIABLE(variable, depth + 1);
+    }
+
+    node.lhs = node.try_lhs().map(|mut inner| {
+        inc_depth(&mut inner);
+        Box::new(inner)
+    });
+    node.rhs = node.try_rhs().map(|mut inner| {
+        inc_depth(&mut inner);
+        Box::new(inner)
+    });
+
+    // node.block = node.try_block().map(|nodes| {
+    //     let nodes = nodes
+    //         .into_iter()
+    //         .map(|mut node| {
+    //             inc_depth(&mut node);
+    //             Box::new(node)
+    //         }).collect();
+    //     Box::new(nodes)
+    // });
+}
+
 impl Node {
     pub fn normal_init(kind_: Token, lhs: Option<Node>, rhs: Option<Node>) -> Self {
         Node {
@@ -41,6 +131,10 @@ impl Node {
             block: None,
             while_condition: None,
             while_content: None,
+            for_first: None,
+            for_second: None,
+            for_third: None,
+            for_content: None,
         }
     }
 
@@ -55,6 +149,10 @@ impl Node {
             block: None,
             while_content: None,
             while_condition: None,
+            for_first: None,
+            for_second: None,
+            for_third: None,
+            for_content: None,
         }
     }
 
@@ -69,6 +167,10 @@ impl Node {
             block: Some(Box::new(block)),
             while_content: None,
             while_condition: None,
+            for_first: None,
+            for_second: None,
+            for_third: None,
+            for_content: None,
         }
     }
 
@@ -83,6 +185,33 @@ impl Node {
             block: None,
             while_condition: Some(Box::new(while_condition)),
             while_content: Some(Box::new(while_content)),
+            for_first: None,
+            for_second: None,
+            for_third: None,
+            for_content: None,
+        }
+    }
+
+    pub fn for_init(
+        first: Option<Node>,
+        second: Option<Node>,
+        third: Option<Node>,
+        content: Option<Node>,
+    ) -> Node {
+        Node {
+            kind: Token::FOR,
+            lhs: None,
+            rhs: None,
+            if_condition: None,
+            if_content: None,
+            else_content: None,
+            block: None,
+            while_condition: None,
+            while_content: None,
+            for_first: first.map(Box::new),
+            for_second: second.map(Box::new),
+            for_third: third.map(Box::new),
+            for_content: content.map(Box::new),
         }
     }
 
@@ -112,21 +241,44 @@ impl Node {
         self.else_content.is_some()
     }
 
+    /// inc depth when for condtion like for (int i = 0; i <= 10; i ++)
+    /// in this condition it is usefull for inciment depth to check variable scope
+    pub fn inc_depth(&mut self) {
+        inc_depth(self);
+    }
+
     impl_return_reference!(lhs, try_lhs, lhs, Node);
     impl_return_reference!(rhs, try_rhs, rhs, Node);
     impl_return_reference!(if_condition, try_if_condition, if_condition, Node);
     impl_return_reference!(if_content, try_if_content, if_content, Node);
     impl_return_reference!(else_content, try_else_content, else_content, Node);
     impl_return_reference!(block, try_block, block, Nodes);
-    impl_return_reference!(while_condition, try_while_condtion, while_condition, Node);
+    impl_return_reference!(while_condition, try_while_condition, while_condition, Node);
     impl_return_reference!(while_content, try_while_content, while_content, Node);
+    impl_return_reference!(for_first, try_for_first, for_first, Node);
+    impl_return_reference!(for_second, try_for_second, for_second, Node);
+    impl_return_reference!(for_third, try_for_third, for_third, Node);
+    impl_return_reference!(for_content, try_for_content, for_content, Node);
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Nodes {
     value: Vec<Node>,
     len: usize,
     // depth: usize,
+}
+
+impl std::fmt::Debug for Nodes {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "Nodes")?;
+        writeln!(f, "content:[")?;
+        for content in self.into_iter() {
+            writeln!(f, "{:?},", content)?;
+        }
+        writeln!(f, "]")?;
+        writeln!(f, "len: {:?}", self.len)?;
+        Ok(())
+    }
 }
 
 impl Default for Nodes {
@@ -185,6 +337,21 @@ impl Iterator for NodesIter {
         Some(self.value.get_nth(self.idx - 1))
     }
 }
+
+// impl FromIterator<Box<Node>> for Nodes {
+//     fn from_iter<I: IntoIterator<Item=Box<Node>>>(iter: I) -> Self {
+//         let mut vec = Vec::new();
+//         for item in iter {
+//             vec.push(*item);
+//         }
+//         let len = vec.len();
+//         let nodes = Nodes {
+//             value: vec,
+//             len,
+//         };
+//         nodes
+//     }
+// }
 
 /// program = stmt*
 pub fn program(tokens_iter: &mut TokensIter) -> Nodes {
@@ -273,11 +440,50 @@ fn while_node(tokens_iter: &mut TokensIter) -> Option<Node> {
     None
 }
 
+fn for_node(tokens_iter: &mut TokensIter) -> Option<Node> {
+    if tokens_iter.consume(Token::FOR) {
+        tokens_iter.consume_or_panic(Token::LPARENTHESIS);
+        let first = match tokens_iter.consume(Token::COLON) {
+            false => {
+                let mut res = expr(tokens_iter);
+                res.inc_depth();
+                tokens_iter.consume_or_panic(Token::COLON);
+                Some(res)
+            }
+            true => None,
+        };
+        let second = match tokens_iter.consume(Token::COLON) {
+            false => {
+                let mut res = expr(tokens_iter);
+                res.inc_depth();
+                tokens_iter.consume_or_panic(Token::COLON);
+                Some(res)
+            }
+            true => None,
+        };
+
+        let third = match tokens_iter.consume(Token::RPARENTHESIS) {
+            false => {
+                let mut res = expr(tokens_iter);
+                res.inc_depth();
+                tokens_iter.consume_or_panic(Token::RPARENTHESIS);
+                Some(res)
+            }
+            true => None,
+        };
+
+        let content = stmt(tokens_iter);
+        let node = Node::for_init(first, second, third, content);
+        return Some(node);
+    }
+    None
+}
+
 /// stmt = expr? ";"
 ///          | "return" expr ";"
 ///          | "if" "(" expr ")" stmt ("else" stmt)?
 ///          | "while" "(" expr ")" stmt
-///          | "for" "("expr? ";" expr? ";" expr? ";" ")" stmt
+///          | "for" "("expr? ";" expr? ";" expr? ")" stmt
 ///          | "{" stmt * "}"
 fn stmt(tokens_iter: &mut TokensIter) -> Option<Node> {
     if let Some(x) = if_else_expr(tokens_iter) {
@@ -290,6 +496,9 @@ fn stmt(tokens_iter: &mut TokensIter) -> Option<Node> {
         return Some(x);
     }
     if let Some(x) = while_node(tokens_iter) {
+        return Some(x);
+    }
+    if let Some(x) = for_node(tokens_iter) {
         return Some(x);
     }
     if let Some(x) = expr_node(tokens_iter) {
@@ -537,5 +746,47 @@ mod expr_test {
         let content_node = program(&mut tokens_iter);
         let ans = Node::while_init(condtion_node, content_node.get_nth(0));
         assert_eq!(ans, nodes.get_nth(0));
+    }
+
+    #[test]
+    fn for_test() {
+        let code_str = "{ j = 0; for (i = 0; i <= 10; i = i + 1) { j = j + i; } }";
+        let code = Code::new(&code_str);
+        let mut tokens_iter = Tokens::parse(&code).into_iter();
+        let nodes = program(&mut tokens_iter);
+        let first = "{{i = 0;}}";
+        let first = Code::new(&first);
+        let mut first = Tokens::parse(&first).into_iter();
+        let first = program(&mut first)
+            .get_nth(0)
+            .block()
+            .get_nth(0)
+            .block()
+            .get_nth(0);
+        let second = "{{i <= 10;}}";
+        let second = Code::new(&second);
+        let mut second = Tokens::parse(&second).into_iter();
+        let second = program(&mut second)
+            .get_nth(0)
+            .block()
+            .get_nth(0)
+            .block()
+            .get_nth(0);
+        let third = "{{i = i + 1;}}";
+        let third = Code::new(third);
+        let mut third = Tokens::parse(&third).into_iter();
+        let third = program(&mut third)
+            .get_nth(0)
+            .block()
+            .get_nth(0)
+            .block()
+            .get_nth(0);
+        let content = "{{ j = j + i; }}";
+        let content = Code::new(content);
+        let mut content = Tokens::parse(&content).into_iter();
+        let content = program(&mut content).get_nth(0).block().get_nth(0);
+        let ans = Node::for_init(Some(first), Some(second), Some(third), Some(content));
+        let res_2nd = nodes.get_nth(0).block().get_nth(1);
+        assert_eq!(ans, res_2nd);
     }
 }

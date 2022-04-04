@@ -146,6 +146,27 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         return assembly;
     }
 
+    if &Token::FOR == node.kind() {
+        if let Some(x) = node.try_for_first() {
+            assembly.push_str(&gen_node(&x, objs, block_num));
+        }
+        let for_first_jump = gen_jump(block_num);
+        let for_end_jump = gen_jump(block_num);
+        assembly.push_str(&format!("{}:\n", for_first_jump));
+        assembly.push_str(&gen_node(&node.for_content(), objs, block_num));
+        if let Some(x) = node.try_for_third() {
+            assembly.push_str(&gen_node(&x, objs, block_num));
+        }
+        if let Some(x) = node.try_for_second() {
+            assembly.push_str(&gen_node(&x, objs, block_num));
+            assembly.push_str("    cmp rax, 1\n");
+            assembly.push_str(&format!("    jne {}\n", for_end_jump));
+        }
+        assembly.push_str(&format!("    jmp {}\n", for_first_jump));
+        assembly.push_str(&format!("{}:\n", for_end_jump));
+        return assembly;
+    }
+
     let lhs = node.lhs();
     let rhs = node.rhs();
 

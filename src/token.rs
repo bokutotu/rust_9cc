@@ -162,7 +162,7 @@ pub enum Token {
     // while
     WHILE,
     // name of identifier
-    // String -> valable name, usize -> offset from rbp
+    // String -> valable name, usize -> block depth
     VARIABLE(String, usize),
     // block
     BLOCK,
