@@ -2,6 +2,12 @@ use crate::node::{Node, Nodes};
 use crate::objs::Obj;
 use crate::token::Token;
 
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
+
+static LOOP_JUMP: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
 fn prologue(offset: usize) -> String {
     format!(
         "    push rbp\n    mov rbp, rsp\n    sub rsp, {:?}\n",
@@ -132,6 +138,9 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
     if &Token::WHILE == node.kind() {
         let while_first_jump = gen_jump(block_num);
         let while_end_jump = gen_jump(block_num);
+
+        LOOP_JUMP.lock().unwrap().push(while_end_jump.clone());
+
         assembly.push_str(&format!("{:}:\n", &while_first_jump));
         let while_condition = node.while_condition();
         let while_condition_striong = gen_node(&while_condition, objs, block_num);
@@ -143,6 +152,9 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         assembly.push_str(&while_content_string);
         assembly.push_str(&format!("    jmp {:}\n", &while_first_jump));
         assembly.push_str(&format!("{:}:\n", &while_end_jump));
+
+        LOOP_JUMP.lock().unwrap().pop();
+
         return assembly;
     }
 
@@ -152,6 +164,9 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         }
         let for_first_jump = gen_jump(block_num);
         let for_end_jump = gen_jump(block_num);
+
+        LOOP_JUMP.lock().unwrap().push(for_end_jump.clone());
+
         assembly.push_str(&format!("{}:\n", for_first_jump));
         assembly.push_str(&gen_node(&node.for_content(), objs, block_num));
         if let Some(x) = node.try_for_third() {
@@ -164,6 +179,20 @@ fn gen_node(node: &Node, objs: &Obj, block_num: &mut usize) -> String {
         }
         assembly.push_str(&format!("    jmp {}\n", for_first_jump));
         assembly.push_str(&format!("{}:\n", for_end_jump));
+
+        LOOP_JUMP.lock().unwrap().pop();
+
+        return assembly;
+    }
+
+    if &Token::BREAK == node.kind() {
+        let break_jump_direction = LOOP_JUMP
+            .lock()
+            .unwrap()
+            .last()
+            .expect("no direction to break")
+            .clone();
+        assembly.push_str(&format!("    jmp {}\n", break_jump_direction));
         return assembly;
     }
 

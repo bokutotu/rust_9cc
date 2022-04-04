@@ -215,6 +215,24 @@ impl Node {
         }
     }
 
+    pub fn break_init() -> Node {
+        Node {
+            kind: Token::BREAK,
+            lhs: None,
+            rhs: None,
+            if_condition: None,
+            if_content: None,
+            else_content: None,
+            block: None,
+            while_condition: None,
+            while_content: None,
+            for_first: None,
+            for_second: None,
+            for_third: None,
+            for_content: None,
+        }
+    }
+
     pub fn num_expect(&self) -> Option<u64> {
         if let Token::INT(x) = self.kind() {
             Some(*x)
@@ -403,10 +421,12 @@ fn expr_node(tokens_iter: &mut TokensIter) -> Option<Node> {
         return None;
     }
     let expr = expr(tokens_iter);
-    if tokens_iter.consume(Token::COLON) {
-        return Some(expr);
-    }
-    None
+    tokens_iter.consume_or_panic(Token::COLON);
+    Some(expr)
+    // if tokens_iter.consume(Token::COLON) {
+    //     return Some(expr);
+    // }
+    // None
 }
 
 fn block(tokens_iter: &mut TokensIter) -> Option<Node> {
@@ -508,7 +528,11 @@ fn stmt(tokens_iter: &mut TokensIter) -> Option<Node> {
 }
 
 /// expr = assign
+///       | break
 fn expr(tokens_iter: &mut TokensIter) -> Node {
+    if tokens_iter.consume(Token::BREAK) {
+        return Node::break_init();
+    }
     assign(tokens_iter)
 }
 

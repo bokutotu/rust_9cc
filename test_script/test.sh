@@ -76,6 +76,10 @@ assert 10 '{ i = 0; while (i == 10) { i = i + 1; } return i; }'
 
 assert 55 '{ j = 0; i = 0; for (i = 0; i <=10; i = i + 1) { j = j + i; } return j; }'
 
+assert 10 "{ i = 0; while (0) { i = i + 1; if ( i == 10 ) { break; } } return i; }"
+assert 10 "{ for (i = 0; i < 1000; i = i + 1) { if (i == 10) { break; } } return i; }"
+assert 10 "{ i = 0; for (;;) { i = i + 1; if (i == 10) { break; } } return i; }"
+
 echo OK
 
 rm ./tmp res.S
