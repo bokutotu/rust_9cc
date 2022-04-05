@@ -4,9 +4,9 @@ use std::io::prelude::*;
 
 use rust_9cc::code::Code;
 use rust_9cc::codegen::gen;
-use rust_9cc::node::program;
 use rust_9cc::objs::{variable_block_check, Obj};
 use rust_9cc::token::Tokens;
+use rust_9cc::tree_gen::program;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

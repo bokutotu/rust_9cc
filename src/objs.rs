@@ -116,8 +116,8 @@ fn test_tokens_iter_to_obj() {
 #[test]
 fn test_scope() {
     use crate::code::Code;
-    use crate::node::program;
     use crate::token::Tokens;
+    use crate::tree_gen::program;
     let code_str = "{a = 10; { b = 2; a = 20; }}";
     let code = Code::new(code_str);
     let mut tokens_iter = Tokens::parse(&code).into_iter();
@@ -131,8 +131,8 @@ fn test_scope() {
 #[should_panic]
 fn test_scope_should_panic() {
     use crate::code::Code;
-    use crate::node::program;
     use crate::token::Tokens;
+    use crate::tree_gen::program;
     let code_str = "{ a = 10; { b = 20; } return b; }";
     let code = Code::new(code_str);
     let mut tokens_iter = Tokens::parse(&code).into_iter();
